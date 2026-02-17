@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MenuTodo</title>
+  <link rel="stylesheet" href="output.css">
+</head>
+<body class="font-sans antialiased h-screen w-screen">
+  <div id="app" class="bg-white rounded-xl shadow-lg overflow-hidden h-full w-full flex flex-col">
+    <!-- Input section -->
+    <div class="p-3 border-b border-gray-100">
+      <input
+        type="text"
+        id="task-input"
+        placeholder="Add a task…"
+        class="w-full px-3 py-2 text-sm bg-gray-50 rounded-lg border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all"
+      />
+    </div>
+
+    <!-- Task list -->
+    <div id="task-list" class="overflow-y-auto flex-1">
+      <!-- Tasks will be rendered here -->
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
