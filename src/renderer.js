@@ -1,6 +1,7 @@
 const { ipcRenderer } = require('electron');
 
 let tasks = [];
+let draggedId = null;
 
 // Generate UUID
 function generateId() {
@@ -65,32 +66,24 @@ function deleteTask(id) {
 function renderTasks() {
   const container = document.getElementById('task-list');
 
-  // Separate completed and uncompleted tasks
+  // Separate completed and uncompleted tasks (preserve array order within each group)
   const uncompleted = tasks.filter(t => !t.completed);
   const completed = tasks.filter(t => t.completed);
 
-  // Sort: newest first within each group
-  uncompleted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  completed.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
-
   let html = '';
 
-  // Render uncompleted tasks
   uncompleted.forEach(task => {
     html += renderTaskRow(task);
   });
 
-  // Add divider if there are both completed and uncompleted tasks
   if (uncompleted.length > 0 && completed.length > 0) {
     html += '<div class="border-t border-gray-100 mx-3"></div>';
   }
 
-  // Render completed tasks
   completed.forEach(task => {
     html += renderTaskRow(task);
   });
 
-  // Empty state
   if (tasks.length === 0) {
     html = `
       <div class="flex flex-col items-center justify-center py-12 text-gray-400">
@@ -104,13 +97,12 @@ function renderTasks() {
 
   container.innerHTML = html;
 
-  // Attach event listeners
+  // Checkbox listeners
   container.querySelectorAll('.task-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('click', () => {
-      toggleTask(checkbox.dataset.id);
-    });
+    checkbox.addEventListener('click', () => toggleTask(checkbox.dataset.id));
   });
 
+  // Delete listeners
   container.querySelectorAll('.task-delete').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -118,8 +110,63 @@ function renderTasks() {
     });
   });
 
-  // Update badge count
+  // Drag-to-reorder listeners (uncompleted tasks only)
+  container.querySelectorAll('.task-row').forEach(row => {
+    if (!row.draggable) return;
+
+    row.addEventListener('dragstart', (e) => {
+      draggedId = row.dataset.id;
+      e.dataTransfer.effectAllowed = 'move';
+      // Delay opacity so the drag image captures the normal state
+      setTimeout(() => { row.style.opacity = '0.4'; }, 0);
+    });
+
+    row.addEventListener('dragend', () => {
+      row.style.opacity = '';
+      clearDropIndicators();
+      draggedId = null;
+    });
+
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (row.dataset.id === draggedId) return;
+      e.dataTransfer.dropEffect = 'move';
+      clearDropIndicators();
+      row.style.borderTop = '2px solid #a5b4fc';
+    });
+
+    row.addEventListener('dragleave', () => {
+      row.style.borderTop = '';
+    });
+
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const targetId = row.dataset.id;
+      if (!draggedId || draggedId === targetId) return;
+
+      const uncompleted = tasks.filter(t => !t.completed);
+      const completed = tasks.filter(t => t.completed);
+
+      const fromIdx = uncompleted.findIndex(t => t.id === draggedId);
+      const toIdx = uncompleted.findIndex(t => t.id === targetId);
+
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [moved] = uncompleted.splice(fromIdx, 1);
+        uncompleted.splice(toIdx, 0, moved);
+        tasks = [...uncompleted, ...completed];
+        saveTasks();
+        renderTasks();
+      }
+    });
+  });
+
   updateBadge();
+}
+
+function clearDropIndicators() {
+  document.querySelectorAll('.task-row').forEach(r => {
+    r.style.borderTop = '';
+  });
 }
 
 // Render a single task row
@@ -129,8 +176,23 @@ function renderTaskRow(task) {
     ? 'text-sm text-gray-400 line-through'
     : 'text-sm text-gray-900';
 
+  const draggableAttr = task.completed ? '' : 'draggable="true"';
+  const dragHandle = task.completed
+    ? '<div class="w-4 flex-shrink-0"></div>'
+    : `<div class="flex-shrink-0 w-4 opacity-0 group-hover:opacity-100 cursor-grab text-gray-300 flex items-center" data-id="${task.id}">
+        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 12 20">
+          <circle cx="4" cy="4" r="1.5"/>
+          <circle cx="4" cy="10" r="1.5"/>
+          <circle cx="4" cy="16" r="1.5"/>
+          <circle cx="9" cy="4" r="1.5"/>
+          <circle cx="9" cy="10" r="1.5"/>
+          <circle cx="9" cy="16" r="1.5"/>
+        </svg>
+      </div>`;
+
   return `
-    <div class="group flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors">
+    <div class="task-row group flex items-center gap-2 px-3 py-2.5 hover:bg-gray-50 transition-colors" ${draggableAttr} data-id="${task.id}">
+      ${dragHandle}
       <div class="task-checkbox ${checkboxClass}" data-id="${task.id}">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
@@ -157,7 +219,6 @@ function escapeHtml(text) {
 document.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('task-input');
 
-  // Handle Enter key to add task
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && input.value.trim()) {
       addTask(input.value);

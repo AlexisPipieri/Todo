@@ -85,9 +85,7 @@ function createWindow() {
 }
 
 function createTray() {
-  // Create a 22x22 checkmark icon using data URL (standard macOS menu bar size)
   const iconDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAARUlEQVR42mNgGAVDBfxHwjQx9D+tDP0/pFw7MEFAjEKywpWQBrIjC59GilMALgOoEln/CWCqxzzVkhbNchbNCphRQDkAALOAU606uX3uAAAAAElFTkSuQmCC';
-
   const icon = nativeImage.createFromDataURL(iconDataUrl);
   icon.setTemplateImage(true);
 
@@ -140,7 +138,6 @@ ipcMain.handle('update-badge', (event, count) => {
 });
 
 app.whenReady().then(() => {
-  // Hide dock icon since this is a menu bar app
   app.dock?.hide();
 
   createWindow();

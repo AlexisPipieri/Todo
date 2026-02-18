@@ -601,6 +601,10 @@ video {
   display: flex;
 }
 
+.h-3 {
+  height: 0.75rem;
+}
+
 .h-4 {
   height: 1rem;
 }
@@ -615,6 +619,10 @@ video {
 
 .h-screen {
   height: 100vh;
+}
+
+.w-3 {
+  width: 0.75rem;
 }
 
 .w-4 {
@@ -637,6 +645,14 @@ video {
   flex: 1 1 0%;
 }
 
+.flex-shrink-0 {
+  flex-shrink: 0;
+}
+
+.cursor-grab {
+  cursor: grab;
+}
+
 .flex-col {
   flex-direction: column;
 }
@@ -649,8 +665,8 @@ video {
   justify-content: center;
 }
 
-.gap-3 {
-  gap: 0.75rem;
+.gap-2 {
+  gap: 0.5rem;
 }
 
 .overflow-hidden {
