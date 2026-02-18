@@ -7,6 +7,7 @@ let activePicker = null;
 let activePickerTaskId = null;
 let draggedId = null;
 let showHistory = false;
+let editingTaskId = null;
 
 const COLOR_PALETTE = ['#6366f1','#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#ec4899','#a855f7'];
 
@@ -239,6 +240,22 @@ function toggleTask(id) {
   }
 }
 
+// Update text of an existing task
+function updateTaskText(id, newText) {
+  const trimmed = newText.trim();
+  if (!trimmed) {
+    editingTaskId = null;
+    renderTasks();
+    return;
+  }
+  const task = tasks.find(t => t.id === id);
+  if (task) task.text = trimmed;
+  editingTaskId = null;
+  saveTasks();
+  renderTasks();
+  updateBadge();
+}
+
 // Delete a task
 function deleteTask(id) {
   tasks = tasks.filter(t => t.id !== id);
@@ -382,6 +399,32 @@ function renderTasks() {
     });
   });
 
+  // Inline edit: click on uncompleted task text
+  container.querySelectorAll('[data-clickable-id]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      editingTaskId = el.dataset.clickableId;
+      renderTasks();
+      const input = container.querySelector('[data-edit-id]');
+      if (input) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+    });
+  });
+
+  // Inline edit: keyboard and blur on the active input
+  const editInput = container.querySelector('[data-edit-id]');
+  if (editInput) {
+    editInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') updateTaskText(editInput.dataset.editId, editInput.value);
+      if (e.key === 'Escape') { editingTaskId = null; renderTasks(); }
+    });
+    editInput.addEventListener('blur', () => {
+      updateTaskText(editInput.dataset.editId, editInput.value);
+    });
+  }
+
   // Drag-to-reorder listeners (uncompleted tasks only)
   container.querySelectorAll('.task-row').forEach(row => {
     if (!row.draggable) return;
@@ -447,6 +490,15 @@ function renderTaskRow(task) {
     ? 'text-sm text-gray-400 line-through'
     : 'text-sm text-gray-900';
 
+  let textEl;
+  if (!task.completed && editingTaskId === task.id) {
+    textEl = `<input class="edit-input flex-1 bg-transparent outline-none text-sm text-gray-800" data-edit-id="${task.id}" value="${escapeHtml(task.text)}" />`;
+  } else if (!task.completed) {
+    textEl = `<span class="${textClass} flex-1 cursor-text" data-clickable-id="${task.id}">${escapeHtml(task.text)}</span>`;
+  } else {
+    textEl = `<span class="${textClass} flex-1">${escapeHtml(task.text)}</span>`;
+  }
+
   const draggableAttr = task.completed ? '' : 'draggable="true"';
   const dragHandle = task.completed
     ? '<div class="w-4 flex-shrink-0"></div>'
@@ -492,7 +544,7 @@ function renderTaskRow(task) {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
         </svg>
       </div>
-      <span class="${textClass} flex-1">${escapeHtml(task.text)}</span>
+      ${textEl}
       ${projectEl}
       <button class="task-delete opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-500 transition-opacity" data-id="${task.id}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
