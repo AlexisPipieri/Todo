@@ -69,8 +69,7 @@ function createWindow() {
 }
 
 function createTray() {
-  const iconDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAARUlEQVR42mNgGAVDBfxHwjQx9D+tDP0/pFw7MEFAjEKywpWQBrIjC59GilMALgOoEln/CWCqxzzVkhbNchbNCphRQDkAALOAU606uX3uAAAAAElFTkSuQmCC';
-  const icon = nativeImage.createFromDataURL(iconDataUrl);
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'));
   icon.setTemplateImage(true);
 
   tray = new Tray(icon);
