@@ -8,6 +8,7 @@
     "build:css": "node_modules/.bin/tailwindcss -i ./src/styles.css -o ./src/output.css",
     "watch:css": "node_modules/.bin/tailwindcss -i ./src/styles.css -o ./src/output.css --watch",
     "dev": "npm run build:css && electron .",
+    "dev:seed": "npm run build:css && MENUTODO_ENV=test electron .",
     "package": "npm run build:css && electron-builder --mac dir",
     "install-app": "npm run package && cp -r dist/mac-arm64/MenuTodo.app /Applications/MenuTodo.app"
   },

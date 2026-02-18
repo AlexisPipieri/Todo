@@ -5,7 +5,8 @@ const fs = require('fs');
 let tray = null;
 let mainWindow = null;
 
-const DATA_DIR = path.join(app.getPath('userData'), 'menutodo');
+const DATA_DIR_NAME = process.env.MENUTODO_ENV === 'test' ? 'menutodo-test' : 'menutodo';
+const DATA_DIR = path.join(app.getPath('userData'), DATA_DIR_NAME);
 const DATA_FILE = path.join(DATA_DIR, 'tasks.json');
 
 // Ensure data directory exists
@@ -25,7 +26,7 @@ function loadTasks() {
     const data = fs.readFileSync(DATA_FILE, 'utf8');
     return JSON.parse(data);
   } catch (e) {
-    return { tasks: [] };
+    return { tasks: [], projects: [] };
   }
 }
 
@@ -35,31 +36,10 @@ function saveTasks(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-// Process rollover: keep uncompleted tasks, remove completed tasks from previous days
+// Process rollover: uncompleted tasks from previous days carry over automatically.
+// Completed tasks are kept in full for history display.
 function processRollover(data) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const tasks = data.tasks.filter(task => {
-    const createdDate = new Date(task.createdAt);
-    createdDate.setHours(0, 0, 0, 0);
-
-    // Keep all uncompleted tasks
-    if (!task.completed) {
-      return true;
-    }
-
-    // For completed tasks, only keep those completed today
-    if (task.completedAt) {
-      const completedDate = new Date(task.completedAt);
-      completedDate.setHours(0, 0, 0, 0);
-      return completedDate.getTime() === today.getTime();
-    }
-
-    return false;
-  });
-
-  return { tasks };
+  return data;
 }
 
 function createWindow() {
