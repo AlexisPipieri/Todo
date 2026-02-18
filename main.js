@@ -59,6 +59,10 @@ function createWindow() {
 
   mainWindow.loadFile('src/index.html');
 
+  if (!app.isPackaged) {
+    mainWindow.once('ready-to-show', () => mainWindow.show());
+  }
+
   mainWindow.on('blur', () => {
     mainWindow.hide();
   });
@@ -118,7 +122,7 @@ ipcMain.handle('update-badge', (event, count) => {
 });
 
 app.whenReady().then(() => {
-  app.dock?.hide();
+  if (app.isPackaged) app.dock?.hide();
 
   createWindow();
   createTray();

@@ -291,26 +291,21 @@ function renderTasks() {
     html += renderTaskRow(task);
   });
 
-  // Completed section
-  if (completed.length > 0) {
-    const hasHistory = completedPast.length > 0;
+  // Completed section (always visible)
+  html += `
+    <div class="flex items-center justify-between px-3 pt-3 pb-1 ${uncompleted.length > 0 ? 'border-t border-gray-100 mt-1' : ''}">
+      <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">Completed today</span>
+      <button id="history-toggle" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+        ${showHistory ? 'Hide history' : 'History'}
+      </button>
+    </div>
+  `;
 
-    html += `
-      <div class="flex items-center justify-between px-3 pt-3 pb-1 ${uncompleted.length > 0 ? 'border-t border-gray-100 mt-1' : ''}">
-        <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">Completed today</span>
-        ${hasHistory ? `
-          <button id="history-toggle" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-            ${showHistory ? 'Hide history' : 'History'}
-          </button>
-        ` : ''}
-      </div>
-    `;
+  completedToday.forEach(task => {
+    html += renderTaskRow(task);
+  });
 
-    completedToday.forEach(task => {
-      html += renderTaskRow(task);
-    });
-
-    if (showHistory) {
+  if (showHistory) {
       // Group past tasks by day
       const groups = new Map();
       completedPast.forEach(task => {
@@ -334,7 +329,6 @@ function renderTasks() {
           });
         });
     }
-  }
 
   // Empty state
   if (tasks.length === 0) {
