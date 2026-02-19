@@ -581,10 +581,11 @@ document.addEventListener('DOMContentLoaded', () => {
   loadTasks();
 });
 
-// Focus input when window is shown
+// Focus input and refresh task list when window is shown
 ipcRenderer.on('window-shown', () => {
   const input = document.getElementById('task-input');
   input.focus();
+  loadTasks();
 });
 
 // Reload tasks (triggered at midnight)
