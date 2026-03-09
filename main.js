@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -74,6 +74,16 @@ function createTray() {
 
   tray = new Tray(icon);
   tray.setToolTip('MenuTodo');
+
+  tray.on('right-click', () => {
+    const menu = Menu.buildFromTemplate([
+      { label: `MenuTodo v${app.getVersion()}`, enabled: false },
+      { type: 'separator' },
+      { label: 'Restart', click: () => { app.relaunch(); app.exit(0); } },
+      { label: 'Quit', click: () => app.quit() },
+    ]);
+    tray.popUpContextMenu(menu);
+  });
 
   tray.on('click', (event, bounds) => {
     if (mainWindow.isVisible()) {
