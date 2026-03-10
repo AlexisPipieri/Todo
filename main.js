@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu } = require('electron');
+const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -78,6 +78,10 @@ function createTray() {
   tray.on('right-click', () => {
     const menu = Menu.buildFromTemplate([
       { label: `MenuTodo v${app.getVersion()}`, enabled: false },
+      { type: 'separator' },
+      { label: 'Data file path', enabled: false },
+      { label: DATA_FILE, enabled: false },
+      { label: 'Show in Finder', click: () => shell.showItemInFolder(DATA_FILE) },
       { type: 'separator' },
       { label: 'Restart', click: () => { app.relaunch(); app.exit(0); } },
       { label: 'Quit', click: () => app.quit() },
