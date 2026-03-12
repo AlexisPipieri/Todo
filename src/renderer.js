@@ -19,6 +19,7 @@ if (sortMode === 'priority') sortMode = 'manual';
 const COLOR_PALETTE = ['#6366f1','#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#ec4899','#a855f7'];
 
 const URGENT_COLOR = '#ef4444';
+const PRIORITY_ORDER = { urgent: 0 };
 
 // Generate UUID
 function generateId() {
@@ -158,7 +159,11 @@ function formatDueDate(dueDate) {
 // Return uncompleted tasks sorted according to current sortMode
 function getSortedUncompleted() {
   const uncompleted = tasks.filter(t => !t.completed);
-  if (sortMode === 'manual') return [...uncompleted];
+  if (sortMode === 'manual') {
+    const urgent = uncompleted.filter(t => t.priority === 'urgent');
+    const rest   = uncompleted.filter(t => t.priority !== 'urgent');
+    return [...urgent, ...rest];
+  }
 
   if (sortMode === 'due') {
     return [...uncompleted].sort((a, b) => {
@@ -249,8 +254,10 @@ function showProjectPicker(anchorEl, taskId) {
 
   const rect = anchorEl.getBoundingClientRect();
   const pickerWidth = 200;
+  const pickerHeight = picker.offsetHeight;
   const left = rect.left + pickerWidth > window.innerWidth ? rect.right - pickerWidth : rect.left;
-  picker.style.top = `${rect.bottom + 4}px`;
+  const fitsBelow = rect.bottom + 4 + pickerHeight <= window.innerHeight;
+  picker.style.top = fitsBelow ? `${rect.bottom + 4}px` : `${rect.top - pickerHeight - 4}px`;
   picker.style.left = `${left}px`;
 
   renderPickerOptions(optionsList, '');
@@ -325,8 +332,10 @@ function showDueDatePicker(anchorEl, taskId) {
 
   const rect = anchorEl.getBoundingClientRect();
   const pickerWidth = 160;
+  const pickerHeight = picker.offsetHeight;
   const left = rect.left + pickerWidth > window.innerWidth ? rect.right - pickerWidth : rect.left;
-  picker.style.top = `${rect.bottom + 4}px`;
+  const fitsBelow = rect.bottom + 4 + pickerHeight <= window.innerHeight;
+  picker.style.top = fitsBelow ? `${rect.bottom + 4}px` : `${rect.top - pickerHeight - 4}px`;
   picker.style.left = `${left}px`;
 
   const onOutsideClick = (e) => { if (!picker.contains(e.target)) hideDueDatePicker(); };
