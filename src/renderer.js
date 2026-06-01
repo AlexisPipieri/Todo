@@ -3,24 +3,22 @@ const { ipcRenderer } = require('electron');
 let tasks = [];
 let projects = [];
 let pendingProjectId = null;
-let pendingPriority = null;
-let pendingDueDate = null;
 let activePicker = null;
 let activePickerTaskId = null;
 let activeDueDatePicker = null;
 let activeDueDatePickerTaskId = null;
 let draggedId = null;
-let showHistory = false;
+let showCompleted = false;
 let editingTaskId = null;
 let sortedUncompleted = [];
-let sortMode = localStorage.getItem('menutodo-sort') || 'manual';
-if (sortMode === 'priority') sortMode = 'manual';
+let currentView = 'focus';
+let activeProjectFilter = null;
+let activeHashPicker = null;
+let pendingDeadline = null;
+let activeAtPicker = null;
 
 const COLOR_PALETTE = ['#6366f1','#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#ec4899','#a855f7'];
 
-const URGENT_COLOR = '#ef4444';
-
-// Generate UUID
 function generateId() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
@@ -29,7 +27,6 @@ function generateId() {
   });
 }
 
-// Format a Date as YYYY-MM-DD in local time
 function toLocalISO(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -37,7 +34,6 @@ function toLocalISO(d) {
   return `${y}-${m}-${day}`;
 }
 
-// Return the first palette color not yet used by any project
 function getNextColor() {
   const usedColors = projects.map(p => p.color);
   for (const color of COLOR_PALETTE) {
@@ -46,7 +42,6 @@ function getNextColor() {
   return COLOR_PALETTE[projects.length % COLOR_PALETTE.length];
 }
 
-// Create a new project with auto-assigned color
 function createProject(name) {
   const project = { id: generateId(), name: name.trim(), color: getNextColor() };
   projects.push(project);
@@ -54,129 +49,234 @@ function createProject(name) {
   return project;
 }
 
-// Assign a project to a task or to the pending input
 function assignProjectToTask(taskId, projectId) {
   if (taskId === 'pending') {
     pendingProjectId = projectId;
-    updateInputProjectButton();
   } else {
     const task = tasks.find(t => t.id === taskId);
     if (task) { task.projectId = projectId; saveTasks(); renderTasks(); }
   }
 }
 
-// Assign a priority to a task or to the pending input
-function assignPriorityToTask(taskId, priorityId) {
-  if (taskId === 'pending') {
-    pendingPriority = priorityId;
-    updateInputPriorityButton();
-  } else {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) { task.priority = priorityId; saveTasks(); renderTasks(); }
-  }
+function assignDeadlineToTask(taskId, deadline) {
+  const task = tasks.find(t => t.id === taskId);
+  if (task) { task.deadline = deadline; saveTasks(); renderTasks(); }
 }
 
-// Assign a due date to a task or to the pending input
-function assignDueDateToTask(taskId, dueDate) {
-  if (taskId === 'pending') {
-    pendingDueDate = dueDate;
-    updateInputDueDateButton();
-  } else {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) { task.dueDate = dueDate; saveTasks(); renderTasks(); }
+// --- Hash project picker (# inline syntax) ---
+
+function showHashProjectPicker(inputEl, query) {
+  if (activeHashPicker) { activeHashPicker.remove(); activeHashPicker = null; }
+
+  const q = query.toLowerCase();
+  const filtered = q ? projects.filter(p => p.name.toLowerCase().includes(q)) : projects;
+  const exactMatch = projects.some(p => p.name.toLowerCase() === q);
+
+  if (filtered.length === 0 && !(q && !exactMatch)) { hideHashProjectPicker(); return; }
+
+  const picker = document.createElement('div');
+  picker.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:1px solid #e4e4e7;width:200px;z-index:1000;overflow:hidden;padding:4px 0;';
+
+  const makeOption = (label, color, onClick) => {
+    const opt = document.createElement('div');
+    opt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:#3f3f46;';
+    const dot = document.createElement('span');
+    dot.style.cssText = color
+      ? `width:7px;height:7px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block;`
+      : 'width:7px;height:7px;border-radius:50%;border:1.5px solid #d4d4d8;flex-shrink:0;display:inline-block;box-sizing:border-box;';
+    const text = document.createElement('span');
+    text.textContent = label;
+    opt.appendChild(dot); opt.appendChild(text);
+    opt.addEventListener('mouseover', () => { opt.style.background = '#f4f4f5'; });
+    opt.addEventListener('mouseout',  () => { opt.style.background = ''; });
+    opt.addEventListener('mousedown', (e) => { e.preventDefault(); onClick(); });
+    picker.appendChild(opt);
+  };
+
+  filtered.forEach(p => makeOption(p.name, p.color, () => selectHashProject(inputEl, p.id)));
+
+  if (q && !exactMatch) {
+    const createOpt = document.createElement('div');
+    createOpt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:#2563eb;border-top:1px solid #e4e4e7;';
+    const plus = document.createElement('span'); plus.textContent = '+'; plus.style.cssText = 'font-weight:bold;font-size:14px;line-height:1;flex-shrink:0;';
+    const text = document.createElement('span'); text.textContent = `Create "${query}"`;
+    createOpt.appendChild(plus); createOpt.appendChild(text);
+    createOpt.addEventListener('mouseover', () => { createOpt.style.background = '#f4f4f5'; });
+    createOpt.addEventListener('mouseout',  () => { createOpt.style.background = ''; });
+    createOpt.addEventListener('mousedown', (e) => { e.preventDefault(); selectHashProject(inputEl, createProject(query).id); });
+    picker.appendChild(createOpt);
   }
+
+  document.body.appendChild(picker);
+  activeHashPicker = picker;
+
+  const rect = inputEl.getBoundingClientRect();
+  picker.style.top  = `${rect.bottom + 4}px`;
+  picker.style.left = `${rect.left}px`;
 }
 
-// --- Input bar button renderers ---
+function selectHashProject(inputEl, projectId) {
+  inputEl.value = inputEl.value.replace(/#\S*$/, '').trimEnd();
+  pendingProjectId = projectId;
+  hideHashProjectPicker();
+  inputEl.focus();
+}
 
-function updateInputProjectButton() {
-  const btn = document.getElementById('project-picker-btn');
-  if (!btn) return;
-  if (pendingProjectId) {
-    const project = projects.find(p => p.id === pendingProjectId);
-    if (project) {
-      btn.setAttribute('style', `font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;background:${project.color}15;color:${project.color};border:1px solid ${project.color}28;cursor:pointer;white-space:nowrap;line-height:1.6;display:inline-flex;align-items:center;gap:4px;`);
-      btn.innerHTML = `
-        <span style="width:4px;height:4px;border-radius:50%;background:${project.color};display:inline-block;flex-shrink:0;"></span>
-        ${escapeHtml(project.name)}
-        <span data-clear style="font-size:12px;color:${project.color};opacity:0.6;margin-left:1px;line-height:1;">×</span>
-      `;
-      return;
+function hideHashProjectPicker() {
+  if (activeHashPicker) { activeHashPicker.remove(); activeHashPicker = null; }
+}
+
+// --- @ date picker (inline deadline syntax) ---
+
+function parseAtQuery(raw) {
+  const q = raw.toLowerCase().trim();
+  if (!q) return [];
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  function nextDow(dayIdx) {
+    const d = new Date(today);
+    const diff = (dayIdx - d.getDay() + 7) % 7 || 7;
+    d.setDate(d.getDate() + diff);
+    return d;
+  }
+
+  function fmtSub(d) {
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  const seen = new Set();
+  const results = [];
+
+  function add(label, d) {
+    const iso = toLocalISO(d);
+    if (!seen.has(iso)) { seen.add(iso); results.push({ label, sublabel: fmtSub(d), iso }); }
+  }
+
+  const tom = new Date(today); tom.setDate(tom.getDate() + 1);
+  if ('today'.startsWith(q))    add('Today',    today);
+  if ('tomorrow'.startsWith(q)) add('Tomorrow', tom);
+
+  const DAYS = [
+    ['sunday',    0, ['su', 'sun']],
+    ['monday',    1, ['mo', 'mon']],
+    ['tuesday',   2, ['tu', 'tue']],
+    ['wednesday', 3, ['we', 'wed']],
+    ['thursday',  4, ['th', 'thu']],
+    ['friday',    5, ['fr', 'fri']],
+    ['saturday',  6, ['sa', 'sat']],
+  ];
+
+  DAYS.forEach(([name, idx, aliases]) => {
+    if (name.startsWith(q) || aliases.includes(q)) {
+      add(name[0].toUpperCase() + name.slice(1), nextDow(idx));
     }
+  });
+
+  if (q.length >= 2 && 'next'.startsWith(q)) {
+    add('Next Sunday', nextDow(0));
   }
-  btn.setAttribute('style', 'font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;cursor:pointer;white-space:nowrap;line-height:1.6;display:inline-flex;align-items:center;gap:4px;');
-  btn.innerHTML = `
-    <span style="width:4px;height:4px;border-radius:50%;background:#d1d5db;display:inline-block;flex-shrink:0;"></span>
-    Project
-  `;
-}
-
-function updateInputPriorityButton() {
-  const btn = document.getElementById('priority-picker-btn');
-  if (!btn) return;
-  if (pendingPriority === 'urgent') {
-    btn.setAttribute('style', `font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;background:${URGENT_COLOR}12;color:${URGENT_COLOR};border:1px solid ${URGENT_COLOR}28;cursor:pointer;white-space:nowrap;line-height:1.6;display:inline-flex;align-items:center;gap:3px;letter-spacing:-0.5px;`);
-    btn.innerHTML = `!!! Urgent <span data-clear style="font-size:12px;opacity:0.6;margin-left:1px;line-height:1;font-weight:400;letter-spacing:0;">×</span>`;
-  } else {
-    btn.setAttribute('style', 'font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;cursor:pointer;white-space:nowrap;line-height:1.6;display:inline-flex;align-items:center;gap:3px;');
-    btn.innerHTML = `<span style="font-weight:700;letter-spacing:-0.5px;">!!!</span> Urgent`;
-  }
-}
-
-function updateInputDueDateButton() {
-  const btn = document.getElementById('due-date-picker-btn');
-  if (!btn) return;
-  if (pendingDueDate) {
-    const formatted = formatDueDate(pendingDueDate);
-    if (formatted) {
-      const color  = formatted.overdue ? '#ef4444' : '#6b7280';
-      const bg     = formatted.overdue ? `${color}12` : '#f3f4f6';
-      const border = formatted.overdue ? `${color}28` : '#e5e7eb';
-      btn.setAttribute('style', `font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;background:${bg};color:${color};border:1px solid ${border};cursor:pointer;white-space:nowrap;line-height:1.6;display:inline-flex;align-items:center;gap:3px;`);
-      btn.innerHTML = `${escapeHtml(formatted.label)} <span data-clear style="font-size:12px;opacity:0.6;margin-left:1px;line-height:1;">×</span>`;
-      return;
-    }
-  }
-  btn.setAttribute('style', 'font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;cursor:pointer;white-space:nowrap;line-height:1.6;display:inline-flex;align-items:center;gap:3px;');
-  btn.innerHTML = `Due date`;
-}
-
-// Format a due date string (YYYY-MM-DD) into a display label
-function formatDueDate(dueDate) {
-  if (!dueDate) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const [year, month, day] = dueDate.split('-').map(Number);
-  const due = new Date(year, month - 1, day);
-  const diff = Math.round((due - today) / (1000 * 60 * 60 * 24));
-  if (diff < 0)  return { label: due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), overdue: true };
-  if (diff === 0) return { label: 'Today', overdue: false };
-  if (diff === 1) return { label: 'Tomorrow', overdue: false };
-  return { label: due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), overdue: false };
-}
-
-// Return uncompleted tasks sorted according to current sortMode
-function getSortedUncompleted() {
-  const uncompleted = tasks.filter(t => !t.completed);
-  if (sortMode === 'manual') return [...uncompleted];
-
-  if (sortMode === 'due') {
-    return [...uncompleted].sort((a, b) => {
-      if (!a.dueDate && !b.dueDate) return 0;
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      if (a.dueDate < b.dueDate) return -1;
-      if (a.dueDate > b.dueDate) return 1;
-      const pa = a.priority != null ? (PRIORITY_ORDER[a.priority] ?? 999) : 999;
-      const pb = b.priority != null ? (PRIORITY_ORDER[b.priority] ?? 999) : 999;
-      return pa - pb;
+  if (q.startsWith('next ')) {
+    const rest = q.slice(5);
+    DAYS.forEach(([name, idx, aliases]) => {
+      if (!rest || name.startsWith(rest) || aliases.some(a => a === rest)) {
+        const d = nextDow(idx); d.setDate(d.getDate() + 7);
+        add('Next ' + name[0].toUpperCase() + name.slice(1), d);
+      }
     });
   }
 
-  return [...uncompleted];
+  const inMatch = q.match(/^in\s+(\d+)(?:\s+days?)?$/);
+  if (inMatch) {
+    const n = parseInt(inMatch[1], 10);
+    if (n > 0 && n <= 365) {
+      const d = new Date(today); d.setDate(d.getDate() + n);
+      add(`In ${n} day${n !== 1 ? 's' : ''}`, d);
+    }
+  }
+
+  const MONTHS = [
+    ['january',   ['jan'], 0],  ['february',  ['feb'], 1],
+    ['march',     ['mar'], 2],  ['april',     ['apr'], 3],
+    ['may',       ['may'], 4],  ['june',      ['jun'], 5],
+    ['july',      ['jul'], 6],  ['august',    ['aug'], 7],
+    ['september', ['sep', 'sept'], 8], ['october', ['oct'], 9],
+    ['november',  ['nov'], 10], ['december',  ['dec'], 11],
+  ];
+
+  const mParts = q.match(/^([a-z]+)(?:\s+(\d{1,2}))?$/);
+  if (mParts) {
+    const mq = mParts[1], dq = mParts[2] ? parseInt(mParts[2], 10) : null;
+    MONTHS.forEach(([fullName, abbrs, idx]) => {
+      if (fullName.startsWith(mq) || abbrs.some(a => a.startsWith(mq))) {
+        const dayNum = (dq && dq >= 1 && dq <= 31) ? dq : null;
+        let year = today.getFullYear();
+        const d = new Date(year, idx, dayNum || 1);
+        if (d <= today) d.setFullYear(year + 1);
+        const mLabel = fullName[0].toUpperCase() + fullName.slice(1, 3);
+        add(dayNum ? `${mLabel} ${dayNum}` : mLabel, d);
+      }
+    });
+  }
+
+  return results.slice(0, 6);
 }
 
-// --- Project picker ---
+function showAtDatePicker(inputEl, rawQuery) {
+  if (activeAtPicker) { activeAtPicker.remove(); activeAtPicker = null; }
+  const suggestions = parseAtQuery(rawQuery);
+  if (!suggestions.length) return;
+
+  const picker = document.createElement('div');
+  picker.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.10);border:1px solid #e4e4e7;width:220px;z-index:1000;overflow:hidden;padding:4px 0;';
+
+  suggestions.forEach(({ label, sublabel, iso }) => {
+    const opt = document.createElement('div');
+    opt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;';
+
+    const iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    const iconWrap = document.createElement('span');
+    iconWrap.innerHTML = iconSvg;
+    iconWrap.style.cssText = 'display:flex;align-items:center;flex-shrink:0;';
+
+    const labelEl = document.createElement('span');
+    labelEl.textContent = label;
+    labelEl.style.cssText = 'font-size:12px;font-weight:500;color:#09090b;white-space:nowrap;';
+
+    const subEl = document.createElement('span');
+    subEl.textContent = sublabel;
+    subEl.style.cssText = 'font-size:11px;color:#a1a1aa;white-space:nowrap;';
+
+    opt.appendChild(iconWrap);
+    opt.appendChild(labelEl);
+    opt.appendChild(subEl);
+
+    opt.addEventListener('mouseover', () => { opt.style.background = '#f4f4f5'; });
+    opt.addEventListener('mouseout',  () => { opt.style.background = ''; });
+    opt.addEventListener('mousedown', (e) => { e.preventDefault(); selectAtDate(inputEl, iso); });
+    picker.appendChild(opt);
+  });
+
+  document.body.appendChild(picker);
+  activeAtPicker = picker;
+
+  const rect = inputEl.getBoundingClientRect();
+  picker.style.top  = `${rect.bottom + 4}px`;
+  picker.style.left = `${rect.left}px`;
+}
+
+function selectAtDate(inputEl, iso) {
+  inputEl.value = inputEl.value.replace(/@[a-zA-Z0-9 ]*$/, '').trimEnd();
+  pendingDeadline = iso;
+  hideAtDatePicker();
+  inputEl.focus();
+}
+
+function hideAtDatePicker() {
+  if (activeAtPicker) { activeAtPicker.remove(); activeAtPicker = null; }
+}
+
+// --- Project picker (for existing tasks) ---
 
 function renderPickerOptions(container, query) {
   container.innerHTML = '';
@@ -186,18 +286,18 @@ function renderPickerOptions(container, query) {
 
   const makeOption = (label, color, onClick) => {
     const opt = document.createElement('div');
-    opt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:12px;color:#374151;';
+    opt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:#3f3f46;';
     const dot = document.createElement('span');
     if (color) {
-      dot.style.cssText = `width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block;`;
+      dot.style.cssText = `width:7px;height:7px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block;`;
     } else {
-      dot.style.cssText = 'width:8px;height:8px;border-radius:50%;border:1.5px solid #d1d5db;flex-shrink:0;display:inline-block;box-sizing:border-box;';
+      dot.style.cssText = 'width:7px;height:7px;border-radius:50%;border:1.5px solid #d4d4d8;flex-shrink:0;display:inline-block;box-sizing:border-box;';
     }
     opt.appendChild(dot);
     const text = document.createElement('span');
     text.textContent = label;
     opt.appendChild(text);
-    opt.addEventListener('mouseover', () => { opt.style.background = '#f9fafb'; });
+    opt.addEventListener('mouseover', () => { opt.style.background = '#f4f4f5'; });
     opt.addEventListener('mouseout',  () => { opt.style.background = ''; });
     opt.addEventListener('mousedown', (e) => { e.preventDefault(); onClick(); });
     container.appendChild(opt);
@@ -210,7 +310,7 @@ function renderPickerOptions(container, query) {
 
   if (q && !exactMatch) {
     const createOpt = document.createElement('div');
-    createOpt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:12px;color:#6366f1;border-top:1px solid #f3f4f6;';
+    createOpt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:#2563eb;border-top:1px solid #e4e4e7;';
     const plus = document.createElement('span');
     plus.textContent = '+';
     plus.style.cssText = 'font-weight:bold;flex-shrink:0;font-size:14px;line-height:1;';
@@ -218,7 +318,7 @@ function renderPickerOptions(container, query) {
     const text = document.createElement('span');
     text.textContent = `Create "${query}"`;
     createOpt.appendChild(text);
-    createOpt.addEventListener('mouseover', () => { createOpt.style.background = '#f9fafb'; });
+    createOpt.addEventListener('mouseover', () => { createOpt.style.background = '#f4f4f5'; });
     createOpt.addEventListener('mouseout',  () => { createOpt.style.background = ''; });
     createOpt.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -231,15 +331,15 @@ function renderPickerOptions(container, query) {
 }
 
 function showProjectPicker(anchorEl, taskId) {
-  hideProjectPicker(); hideDueDatePicker();
+  hideProjectPicker(); hideDeadlinePicker();
   activePickerTaskId = taskId;
 
   const picker = document.createElement('div');
-  picker.style.cssText = 'position:fixed;background:white;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);width:200px;z-index:1000;overflow:hidden;';
+  picker.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:1px solid #e4e4e7;width:200px;z-index:1000;overflow:hidden;';
   const inputEl = document.createElement('input');
   inputEl.type = 'text';
   inputEl.placeholder = 'Find or create…';
-  inputEl.style.cssText = 'width:100%;padding:8px 12px;border:none;border-bottom:1px solid #f3f4f6;font-size:12px;outline:none;box-sizing:border-box;';
+  inputEl.style.cssText = 'width:100%;padding:7px 12px;border:none;border-bottom:1px solid #e4e4e7;font-size:12px;outline:none;box-sizing:border-box;background:transparent;color:#09090b;';
   const optionsList = document.createElement('div');
   optionsList.style.cssText = 'max-height:160px;overflow-y:auto;';
   picker.appendChild(inputEl);
@@ -264,15 +364,14 @@ function hideProjectPicker() {
   if (activePicker) { activePicker.remove(); activePicker = null; activePickerTaskId = null; }
 }
 
+// --- Deadline picker ---
 
-// --- Due date picker ---
-
-function showDueDatePicker(anchorEl, taskId) {
-  hideDueDatePicker(); hideProjectPicker();
+function showDeadlinePicker(anchorEl, taskId) {
+  hideDeadlinePicker(); hideProjectPicker();
   activeDueDatePickerTaskId = taskId;
 
   const picker = document.createElement('div');
-  picker.style.cssText = 'position:fixed;background:white;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);width:160px;z-index:1000;overflow:hidden;padding:4px 0;';
+  picker.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:1px solid #e4e4e7;width:160px;z-index:1000;overflow:hidden;padding:4px 0;';
 
   const today    = new Date();
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -280,42 +379,36 @@ function showDueDatePicker(anchorEl, taskId) {
 
   const makeOption = (label, value) => {
     const opt = document.createElement('div');
-    opt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:12px;color:#374151;';
-    const dot = document.createElement('span');
-    dot.style.cssText = 'width:8px;height:8px;border-radius:50%;border:1.5px solid #d1d5db;flex-shrink:0;display:inline-block;box-sizing:border-box;';
-    opt.appendChild(dot);
-    const text = document.createElement('span');
-    text.textContent = label;
-    opt.appendChild(text);
-    opt.addEventListener('mouseover', () => { opt.style.background = '#f9fafb'; });
+    opt.style.cssText = 'padding:6px 12px;cursor:pointer;font-size:12px;color:#3f3f46;';
+    opt.textContent = label;
+    opt.addEventListener('mouseover', () => { opt.style.background = '#f4f4f5'; });
     opt.addEventListener('mouseout',  () => { opt.style.background = ''; });
     opt.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      assignDueDateToTask(activeDueDatePickerTaskId, value);
-      hideDueDatePicker();
+      assignDeadlineToTask(activeDueDatePickerTaskId, value);
+      hideDeadlinePicker();
     });
     picker.appendChild(opt);
   };
 
-  makeOption('No due date', null);
-  makeOption('Today',      toLocalISO(today));
-  makeOption('Tomorrow',   toLocalISO(tomorrow));
-  makeOption('In a week',  toLocalISO(nextWeek));
+  makeOption('No deadline', null);
+  makeOption('Today',     toLocalISO(today));
+  makeOption('Tomorrow',  toLocalISO(tomorrow));
+  makeOption('In a week', toLocalISO(nextWeek));
 
   const divider = document.createElement('div');
-  divider.style.cssText = 'border-top:1px solid #f3f4f6;margin:4px 0;';
+  divider.style.cssText = 'border-top:1px solid #e4e4e7;margin:4px 0;';
   picker.appendChild(divider);
 
   const dateRow = document.createElement('div');
   dateRow.style.cssText = 'padding:4px 12px 8px;';
   const dateInput = document.createElement('input');
   dateInput.type = 'date';
-  dateInput.style.cssText = 'width:100%;font-size:12px;border:1px solid #e5e7eb;border-radius:4px;padding:4px 6px;outline:none;box-sizing:border-box;color:#374151;';
-  const currentTask = taskId !== 'pending' ? tasks.find(t => t.id === taskId) : null;
-  if (currentTask && currentTask.dueDate) dateInput.value = currentTask.dueDate;
-  else if (taskId === 'pending' && pendingDueDate) dateInput.value = pendingDueDate;
+  dateInput.style.cssText = 'width:100%;font-size:12px;border:1px solid #e4e4e7;border-radius:4px;padding:4px 6px;outline:none;box-sizing:border-box;color:#3f3f46;background:#fff;';
+  const currentTask = tasks.find(t => t.id === taskId);
+  if (currentTask && currentTask.deadline) dateInput.value = currentTask.deadline;
   dateInput.addEventListener('change', (e) => {
-    if (e.target.value) { assignDueDateToTask(activeDueDatePickerTaskId, e.target.value); hideDueDatePicker(); }
+    if (e.target.value) { assignDeadlineToTask(activeDueDatePickerTaskId, e.target.value); hideDeadlinePicker(); }
   });
   dateRow.appendChild(dateInput);
   picker.appendChild(dateRow);
@@ -329,12 +422,12 @@ function showDueDatePicker(anchorEl, taskId) {
   picker.style.top = `${rect.bottom + 4}px`;
   picker.style.left = `${left}px`;
 
-  const onOutsideClick = (e) => { if (!picker.contains(e.target)) hideDueDatePicker(); };
+  const onOutsideClick = (e) => { if (!picker.contains(e.target)) hideDeadlinePicker(); };
   setTimeout(() => document.addEventListener('mousedown', onOutsideClick), 0);
   picker._onOutsideClick = onOutsideClick;
 }
 
-function hideDueDatePicker() {
+function hideDeadlinePicker() {
   if (activeDueDatePicker) {
     if (activeDueDatePicker._onOutsideClick) document.removeEventListener('mousedown', activeDueDatePicker._onOutsideClick);
     activeDueDatePicker.remove();
@@ -357,28 +450,25 @@ async function saveTasks() {
 }
 
 function updateBadge() {
-  ipcRenderer.invoke('update-badge', tasks.filter(t => !t.completed).length);
+  ipcRenderer.invoke('update-badge', tasks.filter(t => !t.completed && t.bucket === 'today').length);
 }
 
 function addTask(text) {
+  const bucket = currentView === 'focus' ? 'today' : 'anytime';
   tasks.unshift({
     id: generateId(),
-    text: text.trim(),
+    title: text.trim(),
+    bucket,
     completed: false,
     createdAt: new Date().toISOString(),
     completedAt: null,
     projectId: pendingProjectId || null,
-    priority: pendingPriority || null,
-    dueDate: pendingDueDate || null,
+    deadline: pendingDeadline || null,
   });
   pendingProjectId = null;
-  pendingPriority = null;
-  pendingDueDate = null;
+  pendingDeadline = null;
   saveTasks();
   renderTasks();
-  updateInputProjectButton();
-  updateInputPriorityButton();
-  updateInputDueDateButton();
 }
 
 function toggleTask(id) {
@@ -395,7 +485,7 @@ function updateTaskText(id, newText) {
   const trimmed = newText.trim();
   if (!trimmed) { editingTaskId = null; renderTasks(); return; }
   const task = tasks.find(t => t.id === id);
-  if (task) task.text = trimmed;
+  if (task) task.title = trimmed;
   editingTaskId = null;
   saveTasks();
   renderTasks();
@@ -408,20 +498,74 @@ function deleteTask(id) {
   renderTasks();
 }
 
-function formatDate(date) {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  yesterday.setHours(0, 0, 0, 0);
-  if (date.getTime() === yesterday.getTime()) return 'Yesterday';
-  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+function moveToToday(id) {
+  const task = tasks.find(t => t.id === id);
+  if (task) { task.bucket = 'today'; saveTasks(); renderTasks(); }
+}
+
+function moveToAnytime(id) {
+  const task = tasks.find(t => t.id === id);
+  if (task) { task.bucket = 'anytime'; saveTasks(); renderTasks(); }
+}
+
+// --- Navigation ---
+
+function switchView(view) {
+  currentView = view;
+  renderTasks();
+  updateNav();
+  updateInputPlaceholder();
+}
+
+function updateNav() {
+  const left  = document.getElementById('nav-left');
+  const right = document.getElementById('nav-right');
+  if (!left || !right) return;
+  if (currentView === 'focus') {
+    left.textContent       = 'Today';
+    left.style.fontWeight  = '600';
+    left.style.color       = '#09090b';
+    left.style.cursor      = 'default';
+    right.textContent      = 'All →';
+    right.style.fontWeight = '400';
+    right.style.color      = '#71717a';
+  } else {
+    left.textContent       = '← Today';
+    left.style.fontWeight  = '400';
+    left.style.color       = '#71717a';
+    left.style.cursor      = 'pointer';
+    right.textContent      = 'All';
+    right.style.fontWeight = '600';
+    right.style.color      = '#09090b';
+  }
+}
+
+function updateInputPlaceholder() {
+  const input = document.getElementById('task-input');
+  if (input) input.placeholder = currentView === 'focus' ? 'Add to today…' : 'Add to backlog…';
+}
+
+// --- Format helpers ---
+
+function formatDeadline(deadline) {
+  if (!deadline) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const [year, month, day] = deadline.split('-').map(Number);
+  const due = new Date(year, month - 1, day);
+  const diff = Math.round((due - today) / (1000 * 60 * 60 * 24));
+  if (diff < 0)  return { label: due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), overdue: true };
+  if (diff === 0) return { label: 'Today', overdue: false };
+  if (diff === 1) return { label: 'Tomorrow', overdue: false };
+  return { label: due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), overdue: false };
 }
 
 // --- Section header ---
 
-function renderSectionHeader(label, color) {
+function renderSectionHeader(label, accent = false) {
+  const color = accent ? '#2563eb' : '#71717a';
   return `
-    <div class="flex items-center gap-1.5 px-3 pt-2.5 pb-0.5">
-      <span style="width:5px;height:5px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block;"></span>
+    <div class="flex items-center px-3 pt-2.5 pb-0.5">
       <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${color};">${escapeHtml(label)}</span>
     </div>
   `;
@@ -431,156 +575,169 @@ function renderSectionHeader(label, color) {
 
 function renderTasks() {
   const container = document.getElementById('task-list');
-  sortedUncompleted = getSortedUncompleted();
-
-  const completed = tasks.filter(t => t.completed);
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-
-  const completedToday = completed
-    .filter(t => { if (!t.completedAt) return false; const d = new Date(t.completedAt); d.setHours(0,0,0,0); return d.getTime() === todayStart.getTime(); })
-    .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
-
-  const completedPast = completed
-    .filter(t => { if (!t.completedAt) return false; const d = new Date(t.completedAt); d.setHours(0,0,0,0); return d.getTime() < todayStart.getTime(); })
-    .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
-
-  const sortActiveClass   = 'bg-gray-100 text-gray-600 font-medium';
-  const sortInactiveClass = 'text-gray-400 hover:text-gray-500';
-
-  let html = `
-    <div class="flex items-center gap-0.5 px-3 pt-2 pb-1.5 border-b border-gray-50">
-      <span class="text-xs text-gray-400 mr-1">Sort:</span>
-      <button data-sort="manual" class="sort-btn text-xs px-1.5 py-0.5 rounded transition-colors ${sortMode === 'manual' ? sortActiveClass : sortInactiveClass}">Manual</button>
-      <button data-sort="due"    class="sort-btn text-xs px-1.5 py-0.5 rounded transition-colors ${sortMode === 'due'    ? sortActiveClass : sortInactiveClass}">Due date</button>
-    </div>
-  `;
-
-  // Uncompleted tasks with optional section headers
-  if (sortMode === 'due') {
-    const todayISO    = toLocalISO(new Date());
-    const tomorrowD   = new Date(); tomorrowD.setDate(tomorrowD.getDate() + 1);
-    const tomorrowISO = toLocalISO(tomorrowD);
-    const weekD       = new Date(); weekD.setDate(weekD.getDate() + 7);
-    const weekISO     = toLocalISO(weekD);
-
-    const dueSections = [
-      { label: 'Overdue',     color: '#ef4444', filter: t =>  t.dueDate && t.dueDate < todayISO },
-      { label: 'Today',       color: '#6b7280', filter: t =>  t.dueDate === todayISO },
-      { label: 'Tomorrow',    color: '#6b7280', filter: t =>  t.dueDate === tomorrowISO },
-      { label: 'This week',   color: '#6b7280', filter: t =>  t.dueDate && t.dueDate > tomorrowISO && t.dueDate <= weekISO },
-      { label: 'Later',       color: '#9ca3af', filter: t =>  t.dueDate && t.dueDate > weekISO },
-      { label: 'No due date', color: '#d1d5db', filter: t => !t.dueDate },
-    ];
-    dueSections.forEach(section => {
-      const sectionTasks = sortedUncompleted.filter(section.filter);
-      if (sectionTasks.length === 0) return;
-      html += renderSectionHeader(section.label, section.color);
-      sectionTasks.forEach(t => { html += renderTaskRow(t); });
-    });
+  if (currentView === 'focus') {
+    renderFocusView(container);
   } else {
-    sortedUncompleted.forEach(t => { html += renderTaskRow(t); });
+    renderListView(container);
   }
+  updateBadge();
+}
 
-  // Completed section
-  html += `
-    <div class="flex items-center justify-between px-3 pt-3 pb-1 ${sortedUncompleted.length > 0 ? 'border-t border-gray-100 mt-1' : ''}">
-      <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">Completed today</span>
-      <button id="history-toggle" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-        ${showHistory ? 'Hide history' : 'History'}
-      </button>
-    </div>
-  `;
-  completedToday.forEach(t => { html += renderTaskRow(t); });
+function renderFocusView(container) {
+  const todayISO = toLocalISO(new Date());
+  const todayActive = tasks.filter(t => !t.completed && t.bucket === 'today');
+  sortedUncompleted = todayActive;
 
-  if (showHistory) {
-    const groups = new Map();
-    completedPast.forEach(task => {
-      const d = new Date(task.completedAt); d.setHours(0,0,0,0);
-      const key = d.getTime();
-      if (!groups.has(key)) groups.set(key, { date: d, tasks: [] });
-      groups.get(key).tasks.push(task);
-    });
-    [...groups.values()]
-      .sort((a, b) => b.date - a.date)
-      .forEach(({ date, tasks: dayTasks }) => {
-        html += `<div class="px-3 pt-3 pb-1"><span class="text-xs font-medium text-gray-400 uppercase tracking-wider">${formatDate(date)}</span></div>`;
-        dayTasks.forEach(t => { html += renderTaskRow(t); });
-      });
-  }
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const completedToday = tasks
+    .filter(t => {
+      if (!t.completed || !t.completedAt) return false;
+      const d = new Date(t.completedAt); d.setHours(0,0,0,0);
+      return d.getTime() === todayStart.getTime();
+    })
+    .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
 
-  if (tasks.length === 0) {
-    html = `
-      <div class="flex flex-col items-center justify-center py-12 text-gray-400">
-        <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-        </svg>
-        <span class="text-sm">No tasks yet</span>
+  const nudges = tasks.filter(t => !t.completed && t.bucket === 'anytime' && t.deadline === todayISO);
+
+  let html = '';
+
+  nudges.forEach(t => {
+    html += `
+      <div class="flex items-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-100">
+        <span style="font-size:12px;color:#92400e;flex:1;min-width:0;" class="truncate"><span style="font-weight:500;">${escapeHtml(t.title)}</span> deadline is today</span>
+        <button class="nudge-add-btn" style="font-size:11px;font-weight:500;color:#92400e;background:#fde68a;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;white-space:nowrap;" data-id="${t.id}">+ Focus</button>
       </div>
     `;
+  });
+
+  if (todayActive.length === 0) {
+    html += `
+      <div class="flex flex-col items-center justify-center py-8 px-4 text-center">
+        <div style="font-size:16px;color:#2563eb;margin-bottom:6px;">✓</div>
+        <div style="font-size:13px;font-weight:500;color:#09090b;margin-bottom:3px;">Focus cleared</div>
+        <div style="font-size:12px;color:#71717a;">Nothing left for today</div>
+      </div>
+    `;
+  } else {
+    todayActive.forEach(t => { html += renderTaskRow(t, true); });
+  }
+
+  if (completedToday.length > 0) {
+    html += `
+      <div style="border-top:1px solid #f0f0ee;margin-top:4px;">
+        <button id="completed-toggle" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;border:none;background:none;cursor:pointer;">
+          <svg style="width:10px;height:10px;color:#a1a1aa;flex-shrink:0;transform:${showCompleted ? 'rotate(90deg)' : 'rotate(0deg)'};transition:transform 60ms ease-out;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+          </svg>
+          <span style="font-size:11px;color:#71717a;">${completedToday.length} done today</span>
+        </button>
+      </div>
+    `;
+    if (showCompleted) {
+      completedToday.forEach(t => { html += renderTaskRow(t, false); });
+    }
   }
 
   container.innerHTML = html;
 
-  // Sort toggle
-  container.querySelectorAll('.sort-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      sortMode = btn.dataset.sort;
-      localStorage.setItem('menutodo-sort', sortMode);
+  container.querySelectorAll('.nudge-add-btn').forEach(btn => {
+    btn.addEventListener('click', () => moveToToday(btn.dataset.id));
+  });
+  const completedToggle = container.querySelector('#completed-toggle');
+  if (completedToggle) completedToggle.addEventListener('click', () => { showCompleted = !showCompleted; renderTasks(); });
+
+  attachTaskListeners(container);
+}
+
+function renderListView(container) {
+  const todayActive   = tasks.filter(t => !t.completed && t.bucket === 'today');
+  const anytimeActive = tasks.filter(t => !t.completed && t.bucket === 'anytime');
+  sortedUncompleted = [...todayActive, ...anytimeActive];
+
+  const filterFn = activeProjectFilter ? t => t.projectId === activeProjectFilter : () => true;
+  const filteredToday   = todayActive.filter(filterFn);
+  const filteredAnytime = anytimeActive.filter(filterFn);
+
+  let html = '';
+
+  if (projects.length > 0) {
+    html += `<div class="flex items-center gap-1.5 px-3 py-2 border-b border-gray-200 overflow-x-auto">`;
+    projects.forEach(p => {
+      const active = activeProjectFilter === p.id;
+      html += `<button class="project-filter-chip flex-shrink-0 text-xs px-2 py-0.5 rounded-full border" data-project-id="${p.id}"
+        style="${active
+          ? `background:${p.color}20;color:${p.color};border-color:${p.color}40;`
+          : 'background:#f4f4f5;color:#71717a;border-color:#e4e4e7;'}">
+        ${escapeHtml(p.name)}
+      </button>`;
+    });
+    html += `</div>`;
+  }
+
+  if (todayActive.length > 0) {
+    html += renderSectionHeader('Today', true);
+    if (filteredToday.length > 0) {
+      filteredToday.forEach(t => { html += renderTaskRow(t, false); });
+    } else {
+      html += `<div class="px-3 py-1.5" style="font-size:12px;color:#71717a;">No matching tasks</div>`;
+    }
+  }
+
+  html += renderSectionHeader('Anytime');
+  if (filteredAnytime.length > 0) {
+    filteredAnytime.forEach(t => { html += renderTaskRow(t, false); });
+  } else if (anytimeActive.length === 0) {
+    html += `<div class="px-3 py-2" style="font-size:12px;color:#71717a;">Backlog is empty</div>`;
+  } else {
+    html += `<div class="px-3 py-1.5" style="font-size:12px;color:#71717a;">No matching tasks</div>`;
+  }
+
+  container.innerHTML = html;
+
+  container.querySelectorAll('.project-filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      activeProjectFilter = activeProjectFilter === chip.dataset.projectId ? null : chip.dataset.projectId;
       renderTasks();
     });
   });
 
-  // History toggle
-  const historyBtn = container.querySelector('#history-toggle');
-  if (historyBtn) historyBtn.addEventListener('click', () => { showHistory = !showHistory; renderTasks(); });
+  attachTaskListeners(container);
+}
 
-  // Checkboxes
+function attachTaskListeners(container) {
   container.querySelectorAll('.task-checkbox').forEach(cb => {
     cb.addEventListener('click', () => toggleTask(cb.dataset.id));
   });
-
-  // Deletes
   container.querySelectorAll('.task-delete').forEach(btn => {
     btn.addEventListener('click', (e) => { e.stopPropagation(); deleteTask(btn.dataset.id); });
   });
-
-  // Project pills / icons
+  container.querySelectorAll('.bucket-today-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); moveToToday(btn.dataset.id); });
+  });
+  container.querySelectorAll('.bucket-anytime-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); moveToAnytime(btn.dataset.id); });
+  });
   container.querySelectorAll('.project-pill').forEach(pill => {
     pill.addEventListener('click', (e) => { e.stopPropagation(); showProjectPicker(pill, pill.dataset.taskId); });
   });
   container.querySelectorAll('.project-tag-btn').forEach(btn => {
     btn.addEventListener('click', (e) => { e.stopPropagation(); showProjectPicker(btn, btn.dataset.taskId); });
   });
-
-  // Priority badge (urgent → remove) / flag icon (none → set urgent)
-  container.querySelectorAll('.priority-badge').forEach(badge => {
-    badge.addEventListener('click', (e) => { e.stopPropagation(); assignPriorityToTask(badge.dataset.taskId, null); });
+  container.querySelectorAll('.deadline-pill').forEach(pill => {
+    pill.addEventListener('click', (e) => { e.stopPropagation(); showDeadlinePicker(pill, pill.dataset.taskId); });
   });
-  container.querySelectorAll('.priority-tag-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => { e.stopPropagation(); assignPriorityToTask(btn.dataset.taskId, 'urgent'); });
+  container.querySelectorAll('.deadline-tag-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); showDeadlinePicker(btn, btn.dataset.taskId); });
   });
-
-  // Due date pills / icons
-  container.querySelectorAll('.due-date-pill').forEach(pill => {
-    pill.addEventListener('click', (e) => { e.stopPropagation(); showDueDatePicker(pill, pill.dataset.taskId); });
-  });
-  container.querySelectorAll('.due-date-tag-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => { e.stopPropagation(); showDueDatePicker(btn, btn.dataset.taskId); });
-  });
-
-  // Inline edit: click text
   container.querySelectorAll('[data-clickable-id]').forEach(el => {
     el.addEventListener('click', e => {
       e.stopPropagation();
       editingTaskId = el.dataset.clickableId;
       renderTasks();
-      const input = container.querySelector('[data-edit-id]');
-      if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+      const inp = container.querySelector('[data-edit-id]');
+      if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
     });
   });
-
-  // Inline edit: input events
   const editInput = container.querySelector('[data-edit-id]');
   if (editInput) {
     editInput.addEventListener('keydown', e => {
@@ -589,11 +746,8 @@ function renderTasks() {
     });
     editInput.addEventListener('blur', () => updateTaskText(editInput.dataset.editId, editInput.value));
   }
-
-  // Drag-to-reorder
   container.querySelectorAll('.task-row').forEach(row => {
     if (!row.draggable) return;
-
     row.addEventListener('dragstart', (e) => {
       draggedId = row.dataset.id;
       e.dataTransfer.effectAllowed = 'move';
@@ -617,14 +771,13 @@ function renderTasks() {
       if (fromIdx !== -1 && toIdx !== -1) {
         const [moved] = sortedUncompleted.splice(fromIdx, 1);
         sortedUncompleted.splice(toIdx, 0, moved);
-        tasks = [...sortedUncompleted, ...tasks.filter(t => t.completed)];
+        const renderedIds = new Set(sortedUncompleted.map(t => t.id));
+        tasks = [...sortedUncompleted, ...tasks.filter(t => !renderedIds.has(t.id))];
         saveTasks();
         renderTasks();
       }
     });
   });
-
-  updateBadge();
 }
 
 function clearDropIndicators() {
@@ -633,112 +786,125 @@ function clearDropIndicators() {
 
 // --- Task row ---
 
-function renderTaskRow(task) {
-  const isEditing = !task.completed && editingTaskId === task.id;
+function renderTaskRow(task, draggable = false) {
+  const isEditing   = !task.completed && editingTaskId === task.id;
+  const isDraggable = draggable && !task.completed;
+  const draggableAttr = isDraggable ? 'draggable="true"' : '';
+  const hasSub = !task.completed && (task.deadline || task.projectId);
+  const checkboxStyle = hasSub ? 'style="align-self:flex-start;margin-top:3px;"' : '';
+  const actionsStyle  = hasSub ? 'style="align-self:flex-start;margin-top:2px;"' : '';
 
-  const draggableAttr = task.completed ? '' : 'draggable="true"';
-
-  const dragHandle = task.completed
-    ? '<div class="w-4 flex-shrink-0"></div>'
-    : `<div class="flex-shrink-0 w-4 opacity-0 group-hover:opacity-100 cursor-grab text-gray-300 flex items-center">
+  const dragHandle = isDraggable
+    ? `<div class="flex-shrink-0 w-4 opacity-0 group-hover:opacity-100 cursor-grab flex items-center" style="color:#d4d4d8;">
         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 12 20">
           <circle cx="4" cy="4" r="1.5"/><circle cx="4" cy="10" r="1.5"/><circle cx="4" cy="16" r="1.5"/>
           <circle cx="9" cy="4" r="1.5"/><circle cx="9" cy="10" r="1.5"/><circle cx="9" cy="16" r="1.5"/>
         </svg>
-      </div>`;
+      </div>`
+    : `<div class="flex-shrink-0 w-4"></div>`;
 
   const checkboxClass = task.completed ? 'checkbox checked' : 'checkbox';
 
-  // Priority indicator (main line) — urgent = !!! badge (click to remove), none = flag icon on hover (click to set)
-  let priorityEl = '';
-  if (task.priority === 'urgent' && !task.completed) {
-    priorityEl = `<button class="priority-badge" data-task-id="${task.id}"
-      style="font-size:10px;font-weight:700;color:${URGENT_COLOR};letter-spacing:-0.5px;cursor:pointer;padding:1px 4px;background:${URGENT_COLOR}12;border:1px solid ${URGENT_COLOR}28;border-radius:3px;line-height:1.6;"
-      title="Remove urgent">!!!</button>`;
-  } else if (!task.completed) {
-    priorityEl = `<button class="priority-tag-btn opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-500 transition-opacity" data-task-id="${task.id}" title="Mark urgent">
-      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21V3M3 3h14l-4 5 4 5H3"/>
-      </svg>
-    </button>`;
-  }
-
-  // Text
   let textEl;
   if (isEditing) {
-    textEl = `<input class="edit-input flex-1 min-w-0 bg-transparent outline-none text-sm text-gray-800" data-edit-id="${task.id}" value="${escapeHtml(task.text)}" />`;
+    textEl = `<input class="edit-input flex-1 min-w-0 bg-transparent outline-none" style="font-size:13px;color:#09090b;" data-edit-id="${task.id}" value="${escapeHtml(task.title)}" />`;
   } else if (!task.completed) {
-    textEl = `<span class="text-sm text-gray-900 flex-1 min-w-0 truncate cursor-text" data-clickable-id="${task.id}">${escapeHtml(task.text)}</span>`;
+    textEl = `<span class="flex-1 min-w-0 truncate cursor-text" style="font-size:13px;color:#09090b;" data-clickable-id="${task.id}">${escapeHtml(task.title)}</span>`;
   } else {
-    textEl = `<span class="text-sm text-gray-400 line-through flex-1 min-w-0 truncate">${escapeHtml(task.text)}</span>`;
+    textEl = `<span class="task-title-completed flex-1 min-w-0 truncate" style="font-size:13px;">${escapeHtml(task.title)}</span>`;
   }
 
-  // Sub-line: due date + project (uncompleted only)
+  // Sub-line: only if there are visible pills
   let subLine = '';
-  if (!task.completed) {
-    // Due date element
-    let dueDateEl = '';
-    if (task.dueDate) {
-      const formatted = formatDueDate(task.dueDate);
-      if (formatted) {
-        const color  = formatted.overdue ? '#ef4444' : '#6b7280';
-        const bg     = formatted.overdue ? '#ef444412' : '#f3f4f6';
-        const border = formatted.overdue ? '#ef444428' : '#e5e7eb';
-        dueDateEl = `<button class="due-date-pill" data-task-id="${task.id}"
+  if (!task.completed && (task.deadline || task.projectId)) {
+    let deadlinePill = '';
+    if (task.deadline) {
+      const fmt = formatDeadline(task.deadline);
+      if (fmt) {
+        const color  = fmt.overdue ? '#ef4444' : '#71717a';
+        const bg     = fmt.overdue ? '#ef444412' : '#f4f4f5';
+        const border = fmt.overdue ? '#ef444428' : '#e4e4e7';
+        deadlinePill = `<button class="deadline-pill" data-task-id="${task.id}"
           style="font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;background:${bg};color:${color};border:1px solid ${border};cursor:pointer;white-space:nowrap;line-height:1.6;">
-          ${escapeHtml(formatted.label)}
+          ${escapeHtml(fmt.label)}
         </button>`;
       }
-    } else {
-      dueDateEl = `<button class="due-date-tag-btn opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-500 transition-opacity" data-task-id="${task.id}" title="Set due date">
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-        </svg>
-      </button>`;
     }
 
-    // Project element
-    let projectEl = '';
+    let projectPill = '';
     if (task.projectId) {
       const project = projects.find(p => p.id === task.projectId);
       if (project) {
-        projectEl = `<button class="project-pill flex items-center gap-1" data-task-id="${task.id}"
+        projectPill = `<button class="project-pill flex items-center gap-1" data-task-id="${task.id}"
           style="font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;background:${project.color}15;color:${project.color};border:1px solid ${project.color}28;cursor:pointer;white-space:nowrap;line-height:1.6;">
           <span style="width:4px;height:4px;border-radius:50%;background:${project.color};display:inline-block;flex-shrink:0;"></span>
           ${escapeHtml(project.name)}
         </button>`;
       }
-    } else {
-      projectEl = `<button class="project-tag-btn opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-500 transition-opacity" data-task-id="${task.id}" title="Assign project">
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 014-4z"/>
-        </svg>
-      </button>`;
     }
 
-    subLine = `<div class="flex items-center gap-1.5 mt-0.5">${dueDateEl}${projectEl}</div>`;
+    if (deadlinePill || projectPill) {
+      subLine = `<div class="flex items-center gap-1.5 mt-0.5">${deadlinePill}${projectPill}</div>`;
+    }
+  }
+
+  // Right-side hover actions
+  let actions = '';
+  if (!task.completed) {
+    const bucketBtn = task.bucket === 'today'
+      ? `<button class="bucket-anytime-btn" data-id="${task.id}" title="Move to Anytime" style="color:#d4d4d8;background:none;border:none;cursor:pointer;padding:0;line-height:1;">
+          <i class="ph ph-tray-arrow-down" style="font-size:12px;"></i>
+        </button>`
+      : `<button class="bucket-today-btn" data-id="${task.id}" title="Move to Today" style="color:#d4d4d8;background:none;border:none;cursor:pointer;padding:0;line-height:1;">
+          <i class="ph ph-tray-arrow-up" style="font-size:12px;"></i>
+        </button>`;
+
+    const calBtn = !task.deadline
+      ? `<button class="deadline-tag-btn" data-task-id="${task.id}" title="Set deadline" style="color:#d4d4d8;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+        </button>` : '';
+
+    const tagBtn = !task.projectId
+      ? `<button class="project-tag-btn" data-task-id="${task.id}" title="Assign project" style="color:#d4d4d8;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 014-4z"/>
+          </svg>
+        </button>` : '';
+
+    actions = `<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 flex-shrink-0" style="transition:opacity 60ms ease-out;">
+      ${bucketBtn}
+      ${calBtn}${tagBtn}
+      <button class="task-delete" data-id="${task.id}" style="color:#d4d4d8;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>`;
+  } else {
+    actions = `<div class="flex items-center opacity-0 group-hover:opacity-100 flex-shrink-0" style="transition:opacity 60ms ease-out;">
+      <button class="task-delete" data-id="${task.id}" style="color:#d4d4d8;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>`;
   }
 
   return `
-    <div class="task-row group flex items-start gap-2 px-3 pt-2 pb-1.5 hover:bg-gray-50 transition-colors" ${draggableAttr} data-id="${task.id}">
+    <div class="task-row group flex items-center gap-2 px-3 py-2 hover:bg-zinc-100" ${draggableAttr} data-id="${task.id}">
       ${dragHandle}
-      <div class="task-checkbox ${checkboxClass}" data-id="${task.id}">
+      <div class="task-checkbox ${checkboxClass}" ${checkboxStyle} data-id="${task.id}">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
         </svg>
       </div>
       <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1.5">
-          ${textEl}
-          ${priorityEl}
-        </div>
+        ${textEl}
         ${subLine}
       </div>
-      <button class="task-delete opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-500 transition-opacity flex-shrink-0 mt-px" data-id="${task.id}">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
+      <div ${actionsStyle}>${actions}</div>
     </div>
   `;
 }
@@ -753,39 +919,51 @@ function escapeHtml(text) {
 
 document.addEventListener('DOMContentLoaded', () => {
   const input       = document.getElementById('task-input');
-  const projectBtn  = document.getElementById('project-picker-btn');
-  const priorityBtn = document.getElementById('priority-picker-btn');
-  const dueDateBtn  = document.getElementById('due-date-picker-btn');
+  const navLeft     = document.getElementById('nav-left');
+  const navRight    = document.getElementById('nav-right');
+  const settingsBtn = document.getElementById('settings-btn');
+
+  settingsBtn?.addEventListener('mouseover', () => { settingsBtn.style.color = '#71717a'; });
+  settingsBtn?.addEventListener('mouseout',  () => { settingsBtn.style.color = '#c4c4c7'; });
+  // settings panel wired up in chantier 7
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && input.value.trim()) { addTask(input.value); input.value = ''; }
+    if (e.key === 'Enter' && input.value.trim()) {
+      hideHashProjectPicker(); hideAtDatePicker();
+      addTask(input.value); input.value = '';
+    }
+    if (e.key === 'Escape') { hideHashProjectPicker(); hideAtDatePicker(); }
   });
 
-  projectBtn.addEventListener('click', (e) => {
-    if (e.target.closest('[data-clear]')) { pendingProjectId = null; updateInputProjectButton(); return; }
-    showProjectPicker(projectBtn, 'pending');
+  input.addEventListener('input', () => {
+    const val = input.value;
+    const hashMatch = val.match(/#(\S*)$/);
+    if (hashMatch) { hideAtDatePicker(); showHashProjectPicker(input, hashMatch[1]); return; }
+    else hideHashProjectPicker();
+
+    const atMatch = val.match(/@([a-zA-Z0-9 ]*)$/);
+    if (atMatch) showAtDatePicker(input, atMatch[1]);
+    else hideAtDatePicker();
   });
 
-  priorityBtn.addEventListener('click', (e) => {
-    if (e.target.closest('[data-clear]')) { pendingPriority = null; updateInputPriorityButton(); return; }
-    pendingPriority = pendingPriority === 'urgent' ? null : 'urgent';
-    updateInputPriorityButton();
+  input.addEventListener('blur', () => { setTimeout(hideHashProjectPicker, 150); setTimeout(hideAtDatePicker, 150); });
+
+  navLeft?.addEventListener('click', () => {
+    if (currentView !== 'focus') switchView('focus');
   });
 
-  dueDateBtn.addEventListener('click', (e) => {
-    if (e.target.closest('[data-clear]')) { pendingDueDate = null; updateInputDueDateButton(); return; }
-    showDueDatePicker(dueDateBtn, 'pending');
+  navRight?.addEventListener('click', () => {
+    if (currentView !== 'list') switchView('list');
   });
 
   loadTasks().then(() => {
-    updateInputPriorityButton();
-    updateInputDueDateButton();
-    updateInputProjectButton();
+    updateNav();
+    updateInputPlaceholder();
   });
 });
 
 ipcRenderer.on('window-shown', () => {
-  hideProjectPicker(); hideDueDatePicker();
+  hideProjectPicker(); hideDeadlinePicker(); hideHashProjectPicker(); hideAtDatePicker();
   document.getElementById('task-input').focus();
   loadTasks();
 });

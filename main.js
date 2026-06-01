@@ -5,9 +5,24 @@ const fs = require('fs');
 let tray = null;
 let mainWindow = null;
 
-const DATA_DIR_NAME = process.env.MENUTODO_ENV === 'test' ? 'menutodo-test' : 'menutodo';
-const DATA_DIR = path.join(app.getPath('userData'), DATA_DIR_NAME);
+const DATA_DIR = process.env.MENUTODO_ENV === 'test'
+  ? path.join(app.getPath('appData'), 'menutodo-test')
+  : app.getPath('userData');
 const DATA_FILE = path.join(DATA_DIR, 'tasks.json');
+
+// Migrate v1 tasks to v2 data model
+function migrateTasks(data) {
+  let changed = false;
+  data.tasks = (data.tasks || []).map(task => {
+    const t = { ...task };
+    if ('text' in t) { t.title = t.text; delete t.text; changed = true; }
+    if (!t.bucket) { t.bucket = 'anytime'; changed = true; }
+    if ('dueDate' in t) { t.deadline = t.dueDate ?? null; delete t.dueDate; changed = true; }
+    if ('priority' in t) { delete t.priority; changed = true; }
+    return t;
+  });
+  return changed;
+}
 
 // Ensure data directory exists
 function ensureDataDir() {
@@ -24,7 +39,10 @@ function loadTasks() {
   ensureDataDir();
   try {
     const data = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    const changed = migrateTasks(parsed);
+    if (changed) saveTasks(parsed);
+    return parsed;
   } catch (e) {
     return { tasks: [], projects: [] };
   }
@@ -139,6 +157,7 @@ app.whenReady().then(() => {
 
   createWindow();
   createTray();
+  startFileWatcher();
 });
 
 app.on('window-all-closed', () => {
@@ -146,6 +165,22 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+// File watcher — picks up external writes (e.g. MCP) and reloads the renderer
+let fileWatcherDebounce = null;
+
+function startFileWatcher() {
+  ensureDataDir();
+  fs.watch(DATA_DIR, (eventType, filename) => {
+    if (filename !== 'tasks.json') return;
+    clearTimeout(fileWatcherDebounce);
+    fileWatcherDebounce = setTimeout(() => {
+      if (mainWindow && mainWindow.webContents) {
+        mainWindow.webContents.send('reload-tasks');
+      }
+    }, 200);
+  });
+}
 
 // Check for rollover at midnight
 function scheduleRolloverCheck() {

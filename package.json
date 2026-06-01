@@ -20,6 +20,7 @@
     "tailwindcss": "^3.4.0"
   },
   "dependencies": {
+    "@phosphor-icons/web": "^2.1.2",
     "uuid": "^9.0.0"
   },
   "build": {
@@ -28,12 +29,15 @@
     "files": [
       "main.js",
       "src/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "node_modules/@phosphor-icons/web/src/regular/**"
     ],
     "mac": {
       "target": {
         "target": "dir",
-        "arch": ["arm64"]
+        "arch": [
+          "arm64"
+        ]
       },
       "category": "public.app-category.productivity",
       "identity": null

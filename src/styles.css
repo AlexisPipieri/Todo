@@ -9,27 +9,53 @@ body {
   background: transparent;
 }
 
-/* Custom checkbox styling */
+/* App shell */
+#app {
+  background: #fafaf9;
+}
+
+/* Input */
+#task-input {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  border-radius: 5px;
+  font-size: 12px;
+  color: #09090b;
+  outline: none;
+  transition: border-color 60ms ease-out;
+  box-sizing: border-box;
+}
+
+#task-input:focus {
+  border-color: #2563eb;
+}
+
+#task-input::placeholder {
+  color: #a1a1aa;
+}
+
+/* Checkbox — rounded square */
 .checkbox {
-  width: 18px;
-  height: 18px;
-  border: 1.5px solid #d1d5db;
-  border-radius: 50%;
+  width: 15px;
+  height: 15px;
+  border: 1px solid #e4e4e7;
+  border-radius: 3px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: border-color 60ms ease-out, background 60ms ease-out;
   flex-shrink: 0;
 }
 
 .checkbox:hover {
-  border-color: #9ca3af;
+  border-color: #71717a;
 }
 
 .checkbox.checked {
-  background: #1a1a1a;
-  border-color: #1a1a1a;
+  background: #2563eb;
+  border-color: #2563eb;
 }
 
 .checkbox.checked svg {
@@ -38,14 +64,26 @@ body {
 
 .checkbox svg {
   display: none;
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   color: white;
 }
 
-/* Scrollbar styling */
+/* Completed task */
+.task-title-completed {
+  text-decoration: line-through;
+  text-decoration-color: #d4d4d8;
+  color: #a1a1aa;
+}
+
+/* Task row hover */
+.task-row {
+  transition: background-color 60ms ease-out;
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -53,10 +91,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #e5e7eb;
-  border-radius: 3px;
+  background: #e4e4e7;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #d1d5db;
+  background: #d4d4d8;
 }

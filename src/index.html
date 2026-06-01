@@ -5,30 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MenuTodo</title>
   <link rel="stylesheet" href="output.css">
+  <link rel="stylesheet" href="../node_modules/@phosphor-icons/web/src/regular/style.css">
 </head>
 <body class="font-sans antialiased h-screen w-screen">
-  <div id="app" class="bg-white rounded-xl shadow-lg overflow-hidden h-full w-full flex flex-col">
-    <!-- Input section -->
-    <div class="px-3 pt-3 pb-2 border-b border-gray-100">
+  <div id="app" class="rounded-xl shadow-lg overflow-hidden h-full w-full flex flex-col">
+
+    <!-- App header: title + settings -->
+    <div class="flex items-center justify-between px-3 border-b border-gray-200" style="padding-top:9px;padding-bottom:9px;">
+      <span style="font-size:13px;font-weight:600;color:#09090b;letter-spacing:-0.01em;">MenuTodo</span>
+      <button id="settings-btn" title="Settings" style="color:#c4c4c7;background:none;border:none;cursor:pointer;padding:0;line-height:1;transition:color 60ms ease-out;">
+        <i class="ph ph-gear" style="font-size:16px;"></i>
+      </button>
+    </div>
+
+    <!-- Input -->
+    <div class="px-3 pt-2 pb-1">
       <input
         type="text"
         id="task-input"
-        placeholder="Add a task…"
-        class="w-full px-3 py-2 text-sm bg-gray-50 rounded-lg border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all"
+        placeholder="Add to today…"
+        class="w-full px-3 py-2"
       />
-      <div class="flex items-center gap-1.5 mt-2">
-        <button id="priority-picker-btn"></button>
-        <button id="due-date-picker-btn"></button>
-        <button id="project-picker-btn"></button>
-      </div>
+    </div>
+
+    <!-- View tabs: Today / All -->
+    <div class="flex items-center justify-between px-3" style="padding-top:5px;padding-bottom:5px;">
+      <button id="nav-left" style="font-size:11px;font-weight:600;color:#09090b;background:none;border:none;cursor:default;padding:0;">Today</button>
+      <button id="nav-right" style="font-size:11px;color:#71717a;background:none;border:none;cursor:pointer;padding:0;">All →</button>
     </div>
 
     <!-- Task list -->
     <div id="task-list" class="overflow-y-auto flex-1">
-      <!-- Tasks will be rendered here -->
     </div>
-  </div>
 
+  </div>
   <script src="renderer.js"></script>
 </body>
 </html>
