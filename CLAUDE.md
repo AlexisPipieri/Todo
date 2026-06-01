@@ -22,11 +22,11 @@ After installing, relaunch the app from /Applications or Spotlight.
 ## Features
 
 - **Tasks**: add via input bar, click text to edit inline, check to complete, × to delete
-- **Priority**: mark tasks as urgent (!!!) via flag icon or input bar button; click badge to remove
-- **Due dates**: set via calendar icon or input bar button; options include Today, Tomorrow, In a week, or custom date
-- **Projects**: assign color-coded project tags via tag icon or input bar button; create new projects inline
-- **Sort modes**: Manual (drag-to-reorder) or Due date (grouped sections: Overdue, Today, Tomorrow, This week, Later, No due date)
-- **Completed section**: tasks completed today shown below active tasks; "History" toggle reveals past completed tasks grouped by day
+- **Deadlines**: set via `@` inline syntax (e.g. `@tomorrow`, `@monday`, `@may 5`) or calendar icon on hover; shown as a pill on the task
+- **Projects**: assign color-coded tags via `#` inline syntax or tag icon on hover; create new projects inline
+- **Buckets**: tasks live in Today or Anytime; move between them via tray icons on hover
+- **Completed section**: tasks completed today shown below active tasks as "N done today" toggle
+- **Views**: Today (focus view) and All (shows Today + Anytime sections with project filter chips)
 - **Tray icon**: left-click to show/hide window; right-click for menu with data file path, Show in Finder, Restart, Quit
 - **Auto-rollover**: uncompleted tasks carry over daily; midnight check reloads tasks automatically
 
