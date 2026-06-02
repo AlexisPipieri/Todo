@@ -3,11 +3,13 @@ const { ipcRenderer } = require('electron');
 let tasks = [];
 let projects = [];
 let pendingProjectId = null;
+let pendingProjectName = null;
+let pendingDeadlineLabel = null;
 let activePicker = null;
 let activePickerTaskId = null;
 let activeDueDatePicker = null;
 let activeDueDatePickerTaskId = null;
-let draggedId = null;
+let dragging = null;
 let showCompleted = false;
 let editingTaskId = null;
 let sortedUncompleted = [];
@@ -76,6 +78,12 @@ function showHashProjectPicker(inputEl, query) {
 
   const picker = document.createElement('div');
   picker.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:1px solid #e4e4e7;width:200px;z-index:1000;overflow:hidden;padding:4px 0;';
+  picker._items = [];
+
+  const setHighlight = (idx) => {
+    picker._items.forEach((item, i) => { item.el.style.background = i === idx ? '#f4f4f5' : ''; });
+    picker._highlighted = idx;
+  };
 
   const makeOption = (label, color, onClick) => {
     const opt = document.createElement('div');
@@ -87,9 +95,9 @@ function showHashProjectPicker(inputEl, query) {
     const text = document.createElement('span');
     text.textContent = label;
     opt.appendChild(dot); opt.appendChild(text);
-    opt.addEventListener('mouseover', () => { opt.style.background = '#f4f4f5'; });
-    opt.addEventListener('mouseout',  () => { opt.style.background = ''; });
+    opt.addEventListener('mouseover', () => setHighlight(picker._items.findIndex(i => i.el === opt)));
     opt.addEventListener('mousedown', (e) => { e.preventDefault(); onClick(); });
+    picker._items.push({ el: opt, action: onClick });
     picker.appendChild(opt);
   };
 
@@ -101,14 +109,16 @@ function showHashProjectPicker(inputEl, query) {
     const plus = document.createElement('span'); plus.textContent = '+'; plus.style.cssText = 'font-weight:bold;font-size:14px;line-height:1;flex-shrink:0;';
     const text = document.createElement('span'); text.textContent = `Create "${query}"`;
     createOpt.appendChild(plus); createOpt.appendChild(text);
-    createOpt.addEventListener('mouseover', () => { createOpt.style.background = '#f4f4f5'; });
-    createOpt.addEventListener('mouseout',  () => { createOpt.style.background = ''; });
-    createOpt.addEventListener('mousedown', (e) => { e.preventDefault(); selectHashProject(inputEl, createProject(query).id); });
+    const createAction = () => selectHashProject(inputEl, createProject(query).id);
+    createOpt.addEventListener('mouseover', () => setHighlight(picker._items.findIndex(i => i.el === createOpt)));
+    createOpt.addEventListener('mousedown', (e) => { e.preventDefault(); createAction(); });
+    picker._items.push({ el: createOpt, action: createAction });
     picker.appendChild(createOpt);
   }
 
   document.body.appendChild(picker);
   activeHashPicker = picker;
+  setHighlight(0);
 
   const rect = inputEl.getBoundingClientRect();
   picker.style.top  = `${rect.bottom + 4}px`;
@@ -116,7 +126,11 @@ function showHashProjectPicker(inputEl, query) {
 }
 
 function selectHashProject(inputEl, projectId) {
-  inputEl.value = inputEl.value.replace(/#\S*$/, '').trimEnd();
+  const project = projects.find(p => p.id === projectId);
+  if (project) {
+    inputEl.value = inputEl.value.replace(/#\S*$/, `#${project.name}`);
+    pendingProjectName = project.name;
+  }
   pendingProjectId = projectId;
   hideHashProjectPicker();
   inputEl.focus();
@@ -229,6 +243,12 @@ function showAtDatePicker(inputEl, rawQuery) {
 
   const picker = document.createElement('div');
   picker.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.10);border:1px solid #e4e4e7;width:220px;z-index:1000;overflow:hidden;padding:4px 0;';
+  picker._items = [];
+
+  const setHighlight = (idx) => {
+    picker._items.forEach((item, i) => { item.el.style.background = i === idx ? '#f4f4f5' : ''; });
+    picker._highlighted = idx;
+  };
 
   suggestions.forEach(({ label, sublabel, iso }) => {
     const opt = document.createElement('div');
@@ -251,23 +271,26 @@ function showAtDatePicker(inputEl, rawQuery) {
     opt.appendChild(labelEl);
     opt.appendChild(subEl);
 
-    opt.addEventListener('mouseover', () => { opt.style.background = '#f4f4f5'; });
-    opt.addEventListener('mouseout',  () => { opt.style.background = ''; });
-    opt.addEventListener('mousedown', (e) => { e.preventDefault(); selectAtDate(inputEl, iso); });
+    const action = () => selectAtDate(inputEl, iso, label);
+    opt.addEventListener('mouseover', () => setHighlight(picker._items.findIndex(i => i.el === opt)));
+    opt.addEventListener('mousedown', (e) => { e.preventDefault(); action(); });
+    picker._items.push({ el: opt, action });
     picker.appendChild(opt);
   });
 
   document.body.appendChild(picker);
   activeAtPicker = picker;
+  setHighlight(0);
 
   const rect = inputEl.getBoundingClientRect();
   picker.style.top  = `${rect.bottom + 4}px`;
   picker.style.left = `${rect.left}px`;
 }
 
-function selectAtDate(inputEl, iso) {
-  inputEl.value = inputEl.value.replace(/@[a-zA-Z0-9 ]*$/, '').trimEnd();
+function selectAtDate(inputEl, iso, label) {
+  inputEl.value = inputEl.value.replace(/@[a-zA-Z0-9 ]*$/, `@${label || iso}`);
   pendingDeadline = iso;
+  pendingDeadlineLabel = label || iso;
   hideAtDatePicker();
   inputEl.focus();
 }
@@ -454,10 +477,15 @@ function updateBadge() {
 }
 
 function addTask(text) {
+  let title = text;
+  if (pendingProjectName) title = title.replace(`#${pendingProjectName}`, '');
+  if (pendingDeadlineLabel) title = title.replace(`@${pendingDeadlineLabel}`, '');
+  title = title.replace(/\s+/g, ' ').trim();
+
   const bucket = currentView === 'focus' ? 'today' : 'anytime';
-  tasks.unshift({
+  tasks.push({
     id: generateId(),
-    title: text.trim(),
+    title,
     bucket,
     completed: false,
     createdAt: new Date().toISOString(),
@@ -466,7 +494,9 @@ function addTask(text) {
     deadline: pendingDeadline || null,
   });
   pendingProjectId = null;
+  pendingProjectName = null;
   pendingDeadline = null;
+  pendingDeadlineLabel = null;
   saveTasks();
   renderTasks();
 }
@@ -492,10 +522,61 @@ function updateTaskText(id, newText) {
   updateBadge();
 }
 
-function deleteTask(id) {
-  tasks = tasks.filter(t => t.id !== id);
+let pendingDelete = null;
+
+function commitPendingDelete() {
+  if (!pendingDelete) return;
+  clearTimeout(pendingDelete.timer);
   saveTasks();
+  const toast = document.getElementById('delete-toast');
+  if (toast) toast.remove();
+  pendingDelete = null;
+}
+
+function deleteTask(id) {
+  commitPendingDelete();
+
+  const index = tasks.findIndex(t => t.id === id);
+  const task = tasks[index];
+  tasks = tasks.filter(t => t.id !== id);
   renderTasks();
+
+  const toast = document.createElement('div');
+  toast.id = 'delete-toast';
+  toast.style.cssText = [
+    'position:fixed', 'bottom:12px', 'left:12px', 'right:12px',
+    'background:#18181b', 'color:#fafafa',
+    'border-radius:8px', 'padding:0 12px',
+    'height:36px', 'display:flex', 'align-items:center', 'justify-content:space-between',
+    'font-size:12px', 'font-weight:500',
+    'box-shadow:0 4px 12px rgba(0,0,0,0.25)',
+    'z-index:9999',
+    'opacity:0', 'transition:opacity 120ms ease',
+  ].join(';');
+  toast.innerHTML = `
+    <span style="color:#a1a1aa;">Task deleted</span>
+    <button id="undo-delete" style="background:none;border:none;cursor:pointer;color:#fafafa;font-size:12px;font-weight:600;padding:0;">Undo</button>
+  `;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => { toast.style.opacity = '1'; });
+
+  const timer = setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => { toast.remove(); }, 120);
+    saveTasks();
+    pendingDelete = null;
+  }, 4000);
+
+  pendingDelete = { task, index, timer };
+
+  document.getElementById('undo-delete').addEventListener('click', () => {
+    clearTimeout(pendingDelete.timer);
+    tasks.splice(index, 0, task);
+    pendingDelete = null;
+    toast.style.opacity = '0';
+    setTimeout(() => { toast.remove(); }, 120);
+    renderTasks();
+  });
 }
 
 function moveToToday(id) {
@@ -720,14 +801,14 @@ function attachTaskListeners(container) {
   container.querySelectorAll('.project-pill').forEach(pill => {
     pill.addEventListener('click', (e) => { e.stopPropagation(); showProjectPicker(pill, pill.dataset.taskId); });
   });
-  container.querySelectorAll('.project-tag-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => { e.stopPropagation(); showProjectPicker(btn, btn.dataset.taskId); });
-  });
   container.querySelectorAll('.deadline-pill').forEach(pill => {
     pill.addEventListener('click', (e) => { e.stopPropagation(); showDeadlinePicker(pill, pill.dataset.taskId); });
   });
   container.querySelectorAll('.deadline-tag-btn').forEach(btn => {
     btn.addEventListener('click', (e) => { e.stopPropagation(); showDeadlinePicker(btn, btn.dataset.taskId); });
+  });
+  container.querySelectorAll('.project-tag-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); showProjectPicker(btn, btn.dataset.taskId); });
   });
   container.querySelectorAll('[data-clickable-id]').forEach(el => {
     el.addEventListener('click', e => {
@@ -746,42 +827,81 @@ function attachTaskListeners(container) {
     });
     editInput.addEventListener('blur', () => updateTaskText(editInput.dataset.editId, editInput.value));
   }
-  container.querySelectorAll('.task-row').forEach(row => {
-    if (!row.draggable) return;
-    row.addEventListener('dragstart', (e) => {
-      draggedId = row.dataset.id;
-      e.dataTransfer.effectAllowed = 'move';
-      setTimeout(() => { row.style.opacity = '0.4'; }, 0);
-    });
-    row.addEventListener('dragend', () => { row.style.opacity = ''; clearDropIndicators(); draggedId = null; });
-    row.addEventListener('dragover', (e) => {
+  container.querySelectorAll('.drag-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
       e.preventDefault();
-      if (row.dataset.id === draggedId) return;
-      e.dataTransfer.dropEffect = 'move';
-      clearDropIndicators();
-      row.style.borderTop = '2px solid #a5b4fc';
-    });
-    row.addEventListener('dragleave', () => { row.style.borderTop = ''; });
-    row.addEventListener('drop', (e) => {
-      e.preventDefault();
-      const targetId = row.dataset.id;
-      if (!draggedId || draggedId === targetId) return;
-      const fromIdx = sortedUncompleted.findIndex(t => t.id === draggedId);
-      const toIdx   = sortedUncompleted.findIndex(t => t.id === targetId);
-      if (fromIdx !== -1 && toIdx !== -1) {
-        const [moved] = sortedUncompleted.splice(fromIdx, 1);
-        sortedUncompleted.splice(toIdx, 0, moved);
-        const renderedIds = new Set(sortedUncompleted.map(t => t.id));
-        tasks = [...sortedUncompleted, ...tasks.filter(t => !renderedIds.has(t.id))];
-        saveTasks();
-        renderTasks();
-      }
+      startDrag(e, handle.closest('.task-row'));
     });
   });
 }
 
 function clearDropIndicators() {
-  document.querySelectorAll('.task-row').forEach(r => { r.style.borderTop = ''; });
+  document.querySelectorAll('.task-row').forEach(r => { r.style.boxShadow = ''; });
+}
+
+function startDrag(e, row) {
+  const rect = row.getBoundingClientRect();
+  const clone = row.cloneNode(true);
+  clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.10),0 2px 6px rgba(0,0,0,0.06);border-radius:6px;background:#fff;opacity:0.97;`;
+  document.body.appendChild(clone);
+  row.style.opacity = '0.3';
+  document.body.style.cursor = 'grabbing';
+  document.body.style.userSelect = 'none';
+  dragging = { id: row.dataset.id, row, clone, offsetY: e.clientY - rect.top, currentTarget: null };
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+  window.addEventListener('blur', cancelDrag);
+}
+
+function onDragMove(e) {
+  if (!dragging) return;
+  dragging.clone.style.top = `${e.clientY - dragging.offsetY}px`;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const targetRow = el?.closest('.task-row[data-id]');
+  clearDropIndicators();
+  if (targetRow && targetRow !== dragging.row) {
+    const r = targetRow.getBoundingClientRect();
+    const before = e.clientY < r.top + r.height / 2;
+    targetRow.style.boxShadow = before ? 'inset 0 2px 0 0 #818cf8' : 'inset 0 -2px 0 0 #818cf8';
+    dragging.currentTarget = { row: targetRow, before };
+  } else {
+    dragging.currentTarget = null;
+  }
+}
+
+function onDragEnd() {
+  if (!dragging) return;
+  finalizeDrag(dragging.currentTarget);
+}
+
+function cancelDrag() {
+  if (!dragging) return;
+  finalizeDrag(null);
+}
+
+function finalizeDrag(currentTarget) {
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+  window.removeEventListener('blur', cancelDrag);
+  const { id, row, clone } = dragging;
+  dragging = null;
+  clone.remove();
+  row.style.opacity = '';
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+  clearDropIndicators();
+  if (!currentTarget) return;
+  const fromIdx = sortedUncompleted.findIndex(t => t.id === id);
+  if (fromIdx === -1) return;
+  const [moved] = sortedUncompleted.splice(fromIdx, 1);
+  const toIdx = sortedUncompleted.findIndex(t => t.id === currentTarget.row.dataset.id);
+  if (toIdx === -1) { sortedUncompleted.splice(fromIdx, 0, moved); return; }
+  sortedUncompleted.splice(currentTarget.before ? toIdx : toIdx + 1, 0, moved);
+  const renderedIds = new Set(sortedUncompleted.map(t => t.id));
+  tasks = [...sortedUncompleted, ...tasks.filter(t => !renderedIds.has(t.id))];
+  saveTasks();
+  renderTasks();
 }
 
 // --- Task row ---
@@ -789,13 +909,10 @@ function clearDropIndicators() {
 function renderTaskRow(task, draggable = false) {
   const isEditing   = !task.completed && editingTaskId === task.id;
   const isDraggable = draggable && !task.completed;
-  const draggableAttr = isDraggable ? 'draggable="true"' : '';
-  const hasSub = !task.completed && (task.deadline || task.projectId);
-  const checkboxStyle = hasSub ? 'style="align-self:flex-start;margin-top:3px;"' : '';
-  const actionsStyle  = hasSub ? 'style="align-self:flex-start;margin-top:2px;"' : '';
+  const hasSub = !task.completed && !!task.deadline;
 
   const dragHandle = isDraggable
-    ? `<div class="flex-shrink-0 w-4 opacity-0 group-hover:opacity-100 cursor-grab flex items-center" style="color:#d4d4d8;">
+    ? `<div class="drag-handle flex-shrink-0 w-4 opacity-0 group-hover:opacity-100 cursor-grab flex items-start pt-0.5" style="color:#d4d4d8;">
         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 12 20">
           <circle cx="4" cy="4" r="1.5"/><circle cx="4" cy="10" r="1.5"/><circle cx="4" cy="16" r="1.5"/>
           <circle cx="9" cy="4" r="1.5"/><circle cx="9" cy="10" r="1.5"/><circle cx="9" cy="16" r="1.5"/>
@@ -809,42 +926,38 @@ function renderTaskRow(task, draggable = false) {
   if (isEditing) {
     textEl = `<input class="edit-input flex-1 min-w-0 bg-transparent outline-none" style="font-size:13px;color:#09090b;" data-edit-id="${task.id}" value="${escapeHtml(task.title)}" />`;
   } else if (!task.completed) {
-    textEl = `<span class="flex-1 min-w-0 truncate cursor-text" style="font-size:13px;color:#09090b;" data-clickable-id="${task.id}">${escapeHtml(task.title)}</span>`;
+    textEl = `<span class="flex-1 min-w-0 cursor-text" style="font-size:13px;color:#09090b;word-break:break-word;" data-clickable-id="${task.id}">${escapeHtml(task.title)}</span>`;
   } else {
-    textEl = `<span class="task-title-completed flex-1 min-w-0 truncate" style="font-size:13px;">${escapeHtml(task.title)}</span>`;
+    textEl = `<span class="task-title-completed flex-1 min-w-0" style="font-size:13px;word-break:break-word;">${escapeHtml(task.title)}</span>`;
   }
 
-  // Sub-line: only if there are visible pills
+  // Deadline sub-line
   let subLine = '';
-  if (!task.completed && (task.deadline || task.projectId)) {
-    let deadlinePill = '';
-    if (task.deadline) {
-      const fmt = formatDeadline(task.deadline);
-      if (fmt) {
-        const color  = fmt.overdue ? '#ef4444' : '#71717a';
-        const bg     = fmt.overdue ? '#ef444412' : '#f4f4f5';
-        const border = fmt.overdue ? '#ef444428' : '#e4e4e7';
-        deadlinePill = `<button class="deadline-pill" data-task-id="${task.id}"
+  if (!task.completed && task.deadline) {
+    const fmt = formatDeadline(task.deadline);
+    if (fmt) {
+      const color  = fmt.overdue ? '#ef4444' : '#71717a';
+      const bg     = fmt.overdue ? '#ef444412' : '#f4f4f5';
+      const border = fmt.overdue ? '#ef444428' : '#e4e4e7';
+      subLine = `<div class="mt-0.5">
+        <button class="deadline-pill" data-task-id="${task.id}"
           style="font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;background:${bg};color:${color};border:1px solid ${border};cursor:pointer;white-space:nowrap;line-height:1.6;">
           ${escapeHtml(fmt.label)}
-        </button>`;
-      }
+        </button>
+      </div>`;
     }
+  }
 
-    let projectPill = '';
-    if (task.projectId) {
-      const project = projects.find(p => p.id === task.projectId);
-      if (project) {
-        projectPill = `<button class="project-pill flex items-center gap-1" data-task-id="${task.id}"
-          style="font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;background:${project.color}15;color:${project.color};border:1px solid ${project.color}28;cursor:pointer;white-space:nowrap;line-height:1.6;">
-          <span style="width:4px;height:4px;border-radius:50%;background:${project.color};display:inline-block;flex-shrink:0;"></span>
-          ${escapeHtml(project.name)}
-        </button>`;
-      }
-    }
-
-    if (deadlinePill || projectPill) {
-      subLine = `<div class="flex items-center gap-1.5 mt-0.5">${deadlinePill}${projectPill}</div>`;
+  // Inline label pill
+  let labelPill = '';
+  if (!task.completed && !isEditing && task.projectId) {
+    const project = projects.find(p => p.id === task.projectId);
+    if (project) {
+      labelPill = `<button class="project-pill flex items-center gap-1 flex-shrink-0" data-task-id="${task.id}"
+        style="font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;background:${project.color}12;color:${project.color};border:none;cursor:pointer;white-space:nowrap;line-height:1.6;flex-shrink:0;align-self:flex-start;margin-top:1px;">
+        <span style="width:4px;height:4px;border-radius:50%;background:${project.color};display:inline-block;flex-shrink:0;"></span>
+        ${escapeHtml(project.name)}
+      </button>`;
     }
   }
 
@@ -867,7 +980,7 @@ function renderTaskRow(task, draggable = false) {
         </button>` : '';
 
     const tagBtn = !task.projectId
-      ? `<button class="project-tag-btn" data-task-id="${task.id}" title="Assign project" style="color:#d4d4d8;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+      ? `<button class="project-tag-btn" data-task-id="${task.id}" title="Add label" style="color:#d4d4d8;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 014-4z"/>
           </svg>
@@ -893,9 +1006,9 @@ function renderTaskRow(task, draggable = false) {
   }
 
   return `
-    <div class="task-row group flex items-center gap-2 px-3 py-2 hover:bg-zinc-100" ${draggableAttr} data-id="${task.id}">
+    <div class="task-row group flex items-start gap-2 px-3 py-2 hover:bg-zinc-100" data-id="${task.id}">
       ${dragHandle}
-      <div class="task-checkbox ${checkboxClass}" ${checkboxStyle} data-id="${task.id}">
+      <div class="task-checkbox ${checkboxClass}" style="margin-top:1px;flex-shrink:0;" data-id="${task.id}">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
         </svg>
@@ -904,7 +1017,8 @@ function renderTaskRow(task, draggable = false) {
         ${textEl}
         ${subLine}
       </div>
-      <div ${actionsStyle}>${actions}</div>
+      ${labelPill}
+      <div style="margin-top:1px;">${actions}</div>
     </div>
   `;
 }
@@ -913,6 +1027,53 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// --- Settings panel ---
+
+function showSettings() {
+  if (document.getElementById('settings-panel')) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'settings-panel';
+  panel.style.cssText = [
+    'position:absolute', 'inset:0', 'background:#fff', 'z-index:100',
+    'display:flex', 'flex-direction:column',
+    'opacity:0', 'transition:opacity 120ms ease',
+  ].join(';');
+
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid #e4e4e7;">
+      <button id="settings-back" style="background:none;border:none;cursor:pointer;padding:0;color:#71717a;display:flex;align-items:center;transition:color 60ms ease-out;">
+        <i class="ph ph-arrow-left" style="font-size:15px;"></i>
+      </button>
+      <span style="font-size:13px;font-weight:600;color:#09090b;letter-spacing:-0.01em;">Settings</span>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:8px 0;">
+      <div style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:#a1a1aa;letter-spacing:0.04em;text-transform:uppercase;">Data</div>
+      <button id="show-in-finder-btn" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:none;border:none;cursor:pointer;text-align:left;transition:background 60ms ease-out;" onmouseover="this.style.background='#f4f4f5'" onmouseout="this.style.background='none'">
+        <span style="font-size:13px;color:#09090b;">Open data file in Finder</span>
+        <i class="ph ph-arrow-square-out" style="font-size:14px;color:#a1a1aa;"></i>
+      </button>
+    </div>
+  `;
+
+  const app = document.getElementById('app');
+  app.style.position = 'relative';
+  app.appendChild(panel);
+  requestAnimationFrame(() => { panel.style.opacity = '1'; });
+
+  panel.querySelector('#settings-back').addEventListener('click', hideSettings);
+  panel.querySelector('#show-in-finder-btn').addEventListener('click', () => {
+    ipcRenderer.invoke('show-in-finder');
+  });
+}
+
+function hideSettings() {
+  const panel = document.getElementById('settings-panel');
+  if (!panel) return;
+  panel.style.opacity = '0';
+  setTimeout(() => { panel.remove(); }, 120);
 }
 
 // --- Init ---
@@ -925,9 +1086,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   settingsBtn?.addEventListener('mouseover', () => { settingsBtn.style.color = '#71717a'; });
   settingsBtn?.addEventListener('mouseout',  () => { settingsBtn.style.color = '#c4c4c7'; });
-  // settings panel wired up in chantier 7
+  settingsBtn?.addEventListener('click', showSettings);
 
   input.addEventListener('keydown', (e) => {
+    const picker = activeHashPicker || activeAtPicker;
+    if (picker && picker._items?.length) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = ((picker._highlighted ?? -1) + 1) % picker._items.length;
+        picker._items.forEach((item, i) => { item.el.style.background = i === next ? '#f4f4f5' : ''; });
+        picker._highlighted = next;
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = ((picker._highlighted ?? 0) - 1 + picker._items.length) % picker._items.length;
+        picker._items.forEach((item, i) => { item.el.style.background = i === prev ? '#f4f4f5' : ''; });
+        picker._highlighted = prev;
+        return;
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault();
+        picker._items[picker._highlighted ?? 0]?.action();
+        return;
+      }
+    }
     if (e.key === 'Enter' && input.value.trim()) {
       hideHashProjectPicker(); hideAtDatePicker();
       addTask(input.value); input.value = '';
@@ -937,6 +1120,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   input.addEventListener('input', () => {
     const val = input.value;
+
+    if (pendingProjectId && !val.includes('#')) { pendingProjectId = null; pendingProjectName = null; }
+    if (pendingDeadline && !val.includes('@')) { pendingDeadline = null; pendingDeadlineLabel = null; }
+
     const hashMatch = val.match(/#(\S*)$/);
     if (hashMatch) { hideAtDatePicker(); showHashProjectPicker(input, hashMatch[1]); return; }
     else hideHashProjectPicker();

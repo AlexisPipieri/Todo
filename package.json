@@ -10,7 +10,8 @@
     "dev": "npm run build:css && electron .",
     "dev:seed": "npm run build:css && MENUTODO_ENV=test electron .",
     "package": "npm run build:css && electron-builder --mac dir",
-    "install-app": "npm run package && rm -rf /Applications/MenuTodo.app && cp -r dist/mac-arm64/MenuTodo.app /Applications/MenuTodo.app"
+    "install-app": "npm run package && rm -rf /Applications/MenuTodo.app && cp -r dist/mac-arm64/MenuTodo.app /Applications/MenuTodo.app",
+    "dist": "npm run build:css && electron-builder --mac dmg"
   },
   "author": "",
   "license": "MIT",
@@ -21,6 +22,7 @@
   },
   "dependencies": {
     "@phosphor-icons/web": "^2.1.2",
+    "electron-updater": "^6.8.3",
     "uuid": "^9.0.0"
   },
   "build": {
@@ -33,14 +35,31 @@
       "node_modules/@phosphor-icons/web/src/regular/**"
     ],
     "mac": {
-      "target": {
-        "target": "dir",
-        "arch": [
-          "arm64"
-        ]
-      },
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
       "category": "public.app-category.productivity",
-      "identity": null
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "notarize": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "AlexisPipieri",
+      "repo": "Todo"
     }
   }
 }

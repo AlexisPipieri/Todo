@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
 
 let tray = null;
 let mainWindow = null;
@@ -97,11 +98,11 @@ function createTray() {
     const menu = Menu.buildFromTemplate([
       { label: `MenuTodo v${app.getVersion()}`, enabled: false },
       { type: 'separator' },
-      { label: 'Data file path', enabled: false },
-      { label: DATA_FILE, enabled: false },
-      { label: 'Show in Finder', click: () => shell.showItemInFolder(DATA_FILE) },
+      { label: 'Check for Updates…', click: () => autoUpdater.checkForUpdatesAndNotify() },
       { type: 'separator' },
-      { label: 'Restart', click: () => { app.relaunch(); app.exit(0); } },
+      { label: 'Show Data File in Finder', click: () => shell.showItemInFolder(DATA_FILE) },
+      { label: 'Restart', click: () => { app.relaunch(); app.quit(); } },
+      { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
     ]);
     tray.popUpContextMenu(menu);
@@ -145,6 +146,10 @@ ipcMain.handle('save-tasks', (event, data) => {
 });
 
 // Update the badge count on the tray icon
+ipcMain.handle('show-in-finder', () => {
+  shell.showItemInFolder(DATA_FILE);
+});
+
 ipcMain.handle('update-badge', (event, count) => {
   if (tray) {
     tray.setTitle(count > 0 ? String(count) : '');
@@ -158,6 +163,10 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   startFileWatcher();
+
+  if (app.isPackaged) {
+    setTimeout(() => autoUpdater.checkForUpdatesAndNotify(), 3000);
+  }
 });
 
 app.on('window-all-closed', () => {
