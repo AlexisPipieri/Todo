@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MenuTodo — Always there. Never in the way.</title>
+  <meta name="description" content="A minimal todo app that lives in your Mac menu bar. Add tasks, set deadlines, and stay focused — without leaving what you're doing.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,200;0,9..144,300;0,9..144,400;1,9..144,200;1,9..144,300&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #F8F6F1;
+      --bg-white: #FFFFFF;
+      --text: #1A1714;
+      --text-muted: #8A8278;
+      --border: #E5E0D6;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* NAV */
+    nav {
+      padding: 28px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .nav-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 18px;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .nav-badge {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      font-weight: 500;
+    }
+
+    /* HERO */
+    .hero {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 72px 48px 52px;
+      animation: fadeUp 0.7s 0.1s ease both;
+    }
+
+    .hero-eyebrow {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hero-eyebrow::before {
+      content: '';
+      display: inline-block;
+      width: 20px;
+      height: 1px;
+      background: var(--text-muted);
+    }
+
+    h1 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(52px, 8vw, 88px);
+      font-weight: 300;
+      line-height: 1.0;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      margin-bottom: 32px;
+    }
+
+    h1 em {
+      font-style: italic;
+      font-weight: 200;
+    }
+
+    .hero-desc {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 460px;
+      line-height: 1.7;
+      margin-bottom: 48px;
+    }
+
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--text);
+      color: var(--bg);
+      text-decoration: none;
+      padding: 14px 28px;
+      border-radius: 100px;
+      font-size: 15px;
+      font-weight: 500;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 2px 8px rgba(26, 23, 20, 0.14);
+    }
+
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(26, 23, 20, 0.18);
+    }
+
+    .download-btn svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+      flex-shrink: 0;
+    }
+
+    .download-note {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* SCREENSHOT */
+    .screenshot-section {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 48px 80px;
+      animation: fadeUp 0.7s 0.2s ease both;
+    }
+
+    .screenshot-frame {
+      background: var(--bg-white);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 40px rgba(26, 23, 20, 0.07), 0 1px 3px rgba(26, 23, 20, 0.04);
+      overflow: hidden;
+    }
+
+    .screenshot-titlebar {
+      background: #EFECE6;
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .dot-red    { background: #FF5F57; }
+    .dot-yellow { background: #FEBC2E; }
+    .dot-green  { background: #28C840; }
+
+    .screenshot-body {
+      height: 340px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #FAFAF8;
+    }
+
+    .screenshot-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-muted);
+    }
+
+    .screenshot-placeholder svg {
+      width: 28px;
+      height: 28px;
+      opacity: 0.25;
+    }
+
+    .screenshot-placeholder span {
+      font-size: 13px;
+      letter-spacing: 0.03em;
+      opacity: 0.5;
+    }
+
+    /* FEATURES */
+    .features-section {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px 48px 100px;
+      animation: fadeUp 0.7s 0.3s ease both;
+    }
+
+    .features-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 48px;
+      align-items: end;
+    }
+
+    h2 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 300;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+
+    h2 em { font-style: italic; }
+
+    .features-intro {
+      font-size: 15px;
+      color: var(--text-muted);
+      line-height: 1.75;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .feature {
+      background: var(--bg);
+      padding: 36px;
+      transition: background 0.18s ease;
+    }
+
+    .feature:hover { background: var(--bg-white); }
+
+    .feature-icon {
+      width: 32px;
+      height: 32px;
+      margin-bottom: 18px;
+      color: var(--text-muted);
+    }
+
+    .feature-title {
+      font-family: 'Fraunces', serif;
+      font-size: 19px;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+
+    .feature-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      animation: fadeUp 0.7s 0.4s ease both;
+    }
+
+    .footer-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+
+    .footer-note {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0);    }
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 640px) {
+      nav,
+      .hero,
+      .screenshot-section,
+      .features-section,
+      footer { padding-left: 24px; padding-right: 24px; }
+
+      .features-header { grid-template-columns: 1fr; }
+      .features-grid   { grid-template-columns: 1fr; }
+
+      footer { flex-direction: column; gap: 8px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/" class="nav-logo">MenuTodo</a>
+    <span class="nav-badge">macOS &nbsp;·&nbsp; Free</span>
+  </nav>
+
+  <section class="hero">
+    <p class="hero-eyebrow">Menu bar todo for macOS</p>
+    <h1>Always there.<br><em>Never in the way.</em></h1>
+    <p class="hero-desc">
+      A minimal todo app that lives in your menu bar. Add tasks, set deadlines, and stay focused — without leaving what you're working on.
+    </p>
+    <a href="https://github.com/AlexisPipieri/Todo/releases/latest/download/MenuTodo-1.0.0-arm64.dmg" class="download-btn">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Download for Mac
+    </a>
+    <p class="download-note">Requires macOS 12 or later &nbsp;·&nbsp; Apple Silicon</p>
+  </section>
+
+  <section class="screenshot-section">
+    <div class="screenshot-frame">
+      <div class="screenshot-titlebar">
+        <div class="dot dot-red"></div>
+        <div class="dot dot-yellow"></div>
+        <div class="dot dot-green"></div>
+      </div>
+      <div class="screenshot-body">
+        <div class="screenshot-placeholder">
+          <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="3" width="22" height="22" rx="4" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M8 14l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Screenshot coming soon</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features-section">
+    <div class="features-header">
+      <h2>Everything you need.<br><em>Nothing you don't.</em></h2>
+      <p class="features-intro">No accounts, no sync, no bloat. Just a clean list that's always one click away, stored locally on your Mac.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature">
+        <svg class="feature-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="5" y="9" width="22" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M11 5v6M21 5v6M5 17h22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <div class="feature-title">Deadlines</div>
+        <p class="feature-desc">Type <code style="font-size:12px;background:#EDE9E1;padding:1px 5px;border-radius:4px;">@tomorrow</code> or <code style="font-size:12px;background:#EDE9E1;padding:1px 5px;border-radius:4px;">@monday</code> inline and MenuTodo understands. Due dates show as a subtle pill on your task.</p>
+      </div>
+
+      <div class="feature">
+        <svg class="feature-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="9"  cy="16" r="4" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="23" cy="9"  r="4" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="23" cy="23" r="4" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M13 14l6-3M13 18l6 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <div class="feature-title">Projects</div>
+        <p class="feature-desc">Assign color-coded tags with <code style="font-size:12px;background:#EDE9E1;padding:1px 5px;border-radius:4px;">#work</code> or <code style="font-size:12px;background:#EDE9E1;padding:1px 5px;border-radius:4px;">#personal</code> inline. Create new projects on the fly without leaving the input.</p>
+      </div>
+
+      <div class="feature">
+        <svg class="feature-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="5"  y="5"  width="9" height="22" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="18" y="11" width="9" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <div class="feature-title">Buckets</div>
+        <p class="feature-desc">Split tasks between Today and Anytime. Focus on what matters now, park the rest for later — move tasks between buckets with one tap.</p>
+      </div>
+
+      <div class="feature">
+        <svg class="feature-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16 7v9l5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M6 20a11 11 0 1 0 2-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M6 13v7H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="feature-title">Auto-rollover</div>
+        <p class="feature-desc">Unfinished tasks carry over automatically at midnight. Nothing falls through the cracks — no manual work required.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <a href="/" class="footer-logo">MenuTodo</a>
+    <span class="footer-note">Made for macOS</span>
+  </footer>
+
+</body>
+</html>
