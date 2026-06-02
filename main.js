@@ -8,7 +8,7 @@ let mainWindow = null;
 
 const DATA_DIR = process.env.MENUTODO_ENV === 'test'
   ? path.join(app.getPath('appData'), 'menutodo-test')
-  : app.getPath('userData');
+  : path.join(app.getPath('appData'), 'menutodo');
 const DATA_FILE = path.join(DATA_DIR, 'tasks.json');
 
 // Migrate v1 tasks to v2 data model

@@ -10,7 +10,7 @@
     "dev": "npm run build:css && electron .",
     "dev:seed": "npm run build:css && MENUTODO_ENV=test electron .",
     "package": "npm run build:css && electron-builder --mac dir",
-    "install-app": "npm run package && rm -rf /Applications/MenuTodo.app && cp -r dist/mac-arm64/MenuTodo.app /Applications/MenuTodo.app",
+    "install-app": "npm run package && rm -rf /Applications/MenuTodo.app && cp -r dist/mac-arm64/MenuTodo.app /Applications/MenuTodo.app && rm -rf dist",
     "dist": "npm run build:css && electron-builder --mac dmg"
   },
   "author": "",
