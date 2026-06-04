@@ -6,9 +6,9 @@ const { autoUpdater } = require('electron-updater');
 let tray = null;
 let mainWindow = null;
 
-const DATA_DIR = process.env.MENUTODO_ENV === 'test'
-  ? path.join(app.getPath('appData'), 'menutodo-test')
-  : path.join(app.getPath('appData'), 'menutodo');
+const DATA_DIR = process.env.TDY_ENV === 'test'
+  ? path.join(app.getPath('appData'), 'tdy-test')
+  : app.getPath('userData');
 const DATA_FILE = path.join(DATA_DIR, 'tasks.json');
 
 // Migrate v1 tasks to v2 data model
@@ -92,11 +92,11 @@ function createTray() {
   icon.setTemplateImage(true);
 
   tray = new Tray(icon);
-  tray.setToolTip('MenuTodo');
+  tray.setToolTip('tdy');
 
   tray.on('right-click', () => {
     const menu = Menu.buildFromTemplate([
-      { label: `MenuTodo v${app.getVersion()}`, enabled: false },
+      { label: `tdy v${app.getVersion()}`, enabled: false },
       { type: 'separator' },
       { label: 'Check for Updates…', click: () => autoUpdater.checkForUpdatesAndNotify() },
       { type: 'separator' },
@@ -155,6 +155,28 @@ ipcMain.handle('update-badge', (event, count) => {
     tray.setTitle(count > 0 ? String(count) : '');
   }
   return true;
+});
+
+ipcMain.handle('show-context-menu', (event, taskId, { isFirst, isLast, bucket, hasProject, hasDeadline, completed }) => {
+  const send = (action) => event.sender.send('context-action', { action, taskId });
+  const template = [];
+  if (!completed) {
+    if (!isFirst) template.push({ label: '↑ Move to top',    click: () => send('move-top') });
+    if (!isLast)  template.push({ label: '↓ Move to bottom', click: () => send('move-bottom') });
+    if (template.length) template.push({ type: 'separator' });
+    if (bucket === 'today') {
+      template.push({ label: '→ Move to Anytime', click: () => send('move-anytime') });
+    } else {
+      template.push({ label: '→ Move to Today', click: () => send('move-today') });
+    }
+    template.push({ type: 'separator' });
+    template.push({ label: hasProject  ? '🏷 Change label'    : '🏷 Add label',    click: () => send(hasProject  ? 'change-label'    : 'add-label') });
+    template.push({ label: hasDeadline ? '📅 Change deadline' : '📅 Set deadline', click: () => send(hasDeadline ? 'change-deadline' : 'set-deadline') });
+    template.push({ type: 'separator' });
+  }
+  template.push({ label: '✕ Delete', click: () => send('delete') });
+  const menu = Menu.buildFromTemplate(template);
+  menu.popup({ window: BrowserWindow.fromWebContents(event.sender) });
 });
 
 app.whenReady().then(() => {

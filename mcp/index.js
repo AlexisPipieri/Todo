@@ -7,7 +7,7 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 
-const DATA_DIR  = join(homedir(), 'Library', 'Application Support', 'menutodo');
+const DATA_DIR  = join(homedir(), 'Library', 'Application Support', 'tdy');
 const DATA_FILE = join(DATA_DIR, 'tasks.json');
 
 const COLOR_PALETTE = ['#6366f1','#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#ec4899','#a855f7'];
@@ -54,7 +54,7 @@ function formatTask(task, projects) {
 }
 
 const server = new Server(
-  { name: 'menutodo', version: '0.1.0' },
+  { name: 'tdy', version: '0.1.0' },
   { capabilities: { tools: {} } }
 );
 

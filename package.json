@@ -1,5 +1,5 @@
 {
-  "name": "menutodo",
+  "name": "tdy",
   "version": "1.0.0",
   "description": "A minimal macOS menu bar todo app",
   "main": "main.js",
@@ -8,9 +8,9 @@
     "build:css": "node_modules/.bin/tailwindcss -i ./src/styles.css -o ./src/output.css",
     "watch:css": "node_modules/.bin/tailwindcss -i ./src/styles.css -o ./src/output.css --watch",
     "dev": "npm run build:css && electron .",
-    "dev:seed": "npm run build:css && MENUTODO_ENV=test electron .",
+    "dev:seed": "npm run build:css && TDY_ENV=test electron .",
     "package": "npm run build:css && electron-builder --mac dir",
-    "install-app": "npm run package && rm -rf /Applications/MenuTodo.app && cp -r dist/mac-arm64/MenuTodo.app /Applications/MenuTodo.app && rm -rf dist",
+    "install-app": "npm run package && rm -rf /Applications/tdy.app && cp -r dist/mac-arm64/tdy.app /Applications/tdy.app && rm -rf dist",
     "dist": "npm run build:css && electron-builder --mac dmg"
   },
   "author": "",
@@ -26,8 +26,8 @@
     "uuid": "^9.0.0"
   },
   "build": {
-    "appId": "com.alexispipieri.menutodo",
-    "productName": "MenuTodo",
+    "appId": "com.alexispipieri.tdy",
+    "productName": "tdy",
     "files": [
       "main.js",
       "src/**/*",

@@ -1,4 +1,4 @@
-# MenuTodo
+# tdy
 
 A minimal macOS menu bar todo app built with Electron.
 
@@ -12,7 +12,7 @@ npm run dev:seed     # same but uses isolated test data directory
 ## Install to /Applications
 
 ```bash
-npm run install-app  # build CSS, package with electron-builder, replace /Applications/MenuTodo.app
+npm run install-app  # build CSS, package with electron-builder, replace /Applications/tdy.app
 ```
 
 After installing, relaunch the app from /Applications or Spotlight.
@@ -32,4 +32,4 @@ After installing, relaunch the app from /Applications or Spotlight.
 
 ## Data
 
-Tasks are stored in `~/Library/Application Support/menutodo/tasks.json` (or `menutodo-test/` when using `dev:seed`).
+Tasks are stored in `~/Library/Application Support/tdy/tasks.json` (or `tdy-test/` when using `dev:seed`).

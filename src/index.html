@@ -3,40 +3,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MenuTodo</title>
+  <title>tdy</title>
   <link rel="stylesheet" href="output.css">
   <link rel="stylesheet" href="../node_modules/@phosphor-icons/web/src/regular/style.css">
 </head>
 <body class="font-sans antialiased h-screen w-screen">
   <div id="app" class="rounded-xl shadow-lg overflow-hidden h-full w-full flex flex-col">
 
-    <!-- App header: title + settings -->
-    <div class="flex items-center justify-between px-3 border-b border-gray-200" style="padding-top:9px;padding-bottom:9px;">
-      <span style="font-size:13px;font-weight:600;color:#09090b;letter-spacing:-0.01em;">MenuTodo</span>
-      <button id="settings-btn" title="Settings" style="color:#c4c4c7;background:none;border:none;cursor:pointer;padding:0;line-height:1;transition:color 60ms ease-out;">
-        <i class="ph ph-gear" style="font-size:16px;"></i>
+    <!-- Header: nav links left, gear right -->
+    <div class="flex items-center justify-between" style="padding:9px 14px 8px;">
+      <div class="flex items-center" id="view-nav">
+        <button id="nav-today" class="nav-btn nav-active">today</button>
+        <span class="nav-sep">/</span>
+        <button id="nav-anytime" class="nav-btn">anytime</button>
+      </div>
+      <button id="settings-btn" title="Settings" class="icon-btn">
+        <i class="ph ph-gear" style="font-size:15px;"></i>
       </button>
     </div>
 
-    <!-- Input -->
-    <div class="px-3 pt-2 pb-1">
-      <input
-        type="text"
-        id="task-input"
-        placeholder="Add to today…"
-        class="w-full px-3 py-2"
-      />
-    </div>
-
-    <!-- View tabs: Today / All -->
-    <div class="flex items-center justify-between px-3" style="padding-top:5px;padding-bottom:5px;">
-      <button id="nav-left" style="font-size:11px;font-weight:600;color:#09090b;background:none;border:none;cursor:default;padding:0;">Today</button>
-      <button id="nav-right" style="font-size:11px;color:#71717a;background:none;border:none;cursor:pointer;padding:0;">All →</button>
+    <!-- Input with token mirror -->
+    <div style="padding:0 12px 10px;">
+      <div class="input-wrap" id="input-wrap">
+        <div id="input-mirror" aria-hidden="true" class="input-mirror"></div>
+        <input
+          type="text"
+          id="task-input"
+          placeholder="Add to today… · @date · #label"
+          class="task-input-real"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
     </div>
 
     <!-- Task list -->
     <div id="task-list" class="overflow-y-auto flex-1">
     </div>
+
+    <!-- History footer — pinned bottom, today view only -->
+    <button id="history-footer-btn" class="history-link" style="border-top:1px solid #f0f0ee;flex-shrink:0;display:none;">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      View history
+    </button>
 
   </div>
   <script src="renderer.js"></script>

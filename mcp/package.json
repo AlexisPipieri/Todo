@@ -1,10 +1,10 @@
 {
-  "name": "menutodo-mcp",
+  "name": "tdy-mcp",
   "version": "0.1.0",
-  "description": "MCP server for MenuTodo",
+  "description": "MCP server for tdy",
   "type": "module",
   "bin": {
-    "menutodo-mcp": "./index.js"
+    "tdy-mcp": "./index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
