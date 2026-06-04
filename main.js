@@ -25,6 +25,16 @@ function migrateTasks(data) {
   return changed;
 }
 
+// One-time migration from old menutodo data directory
+function migrateDataDir() {
+  if (fs.existsSync(DATA_FILE)) return;
+  const oldFile = path.join(app.getPath('appData'), 'menutodo', 'tasks.json');
+  if (fs.existsSync(oldFile)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.copyFileSync(oldFile, DATA_FILE);
+  }
+}
+
 // Ensure data directory exists
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -37,6 +47,7 @@ function ensureDataDir() {
 
 // Load tasks from file
 function loadTasks() {
+  migrateDataDir();
   ensureDataDir();
   try {
     const data = fs.readFileSync(DATA_FILE, 'utf8');
