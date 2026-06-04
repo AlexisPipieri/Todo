@@ -7,15 +7,8 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import taskStoreModule from '../src/task-store.js';
 
-const { createStore } = taskStoreModule;
+const { createStore, getNextColor } = taskStoreModule;
 const store = createStore(join(homedir(), 'Library', 'Application Support', 'tdy'));
-
-const COLOR_PALETTE = ['#6366f1','#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#ec4899','#a855f7'];
-
-function getNextColor(projects) {
-  const used = projects.map(p => p.color);
-  return COLOR_PALETTE.find(c => !used.includes(c)) ?? COLOR_PALETTE[projects.length % COLOR_PALETTE.length];
-}
 
 function resolveProject(data, name) {
   if (!name) return null;

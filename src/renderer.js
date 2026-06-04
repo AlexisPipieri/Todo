@@ -1,11 +1,13 @@
 const { ipcRenderer } = require('electron');
 const { toLocalISO, parseAtQuery } = require('./date-parser');
+const { getNextColor } = require('./task-store');
 
 let tasks = [];
 let projects = [];
-let pendingProjectId = null;
-let pendingProjectName = null;
-let pendingDeadlineLabel = null;
+const draft = {
+  projectId: null, projectName: null, deadline: null, deadlineLabel: null,
+  reset() { this.projectId = null; this.projectName = null; this.deadline = null; this.deadlineLabel = null; },
+};
 let activePicker = null;
 let activePickerTaskId = null;
 let activeDueDatePicker = null;
@@ -19,10 +21,7 @@ let activeProjectFilter = null;
 let activeProjectFilterPicker = null;
 let activeDotsMenu = null;
 let activeHashPicker = null;
-let pendingDeadline = null;
 let activeAtPicker = null;
-
-const COLOR_PALETTE = ['#6366f1','#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#ec4899','#a855f7'];
 
 function generateId() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -33,16 +32,8 @@ function generateId() {
 }
 
 
-function getNextColor() {
-  const usedColors = projects.map(p => p.color);
-  for (const color of COLOR_PALETTE) {
-    if (!usedColors.includes(color)) return color;
-  }
-  return COLOR_PALETTE[projects.length % COLOR_PALETTE.length];
-}
-
 function createProject(name) {
-  const project = { id: generateId(), name: name.trim(), color: getNextColor() };
+  const project = { id: generateId(), name: name.trim(), color: getNextColor(projects) };
   projects.push(project);
   saveTasks();
   return project;
@@ -50,7 +41,7 @@ function createProject(name) {
 
 function assignProjectToTask(taskId, projectId) {
   if (taskId === 'pending') {
-    pendingProjectId = projectId;
+    draft.projectId = projectId;
   } else {
     const task = tasks.find(t => t.id === taskId);
     if (task) { task.projectId = projectId; saveTasks(); renderTasks(); }
@@ -183,9 +174,9 @@ function selectHashProject(inputEl, projectId) {
   const project = projects.find(p => p.id === projectId);
   if (project) {
     inputEl.value = inputEl.value.replace(/#\S*$/, `#${project.name}`);
-    pendingProjectName = project.name;
+    draft.projectName = project.name;
   }
-  pendingProjectId = projectId;
+  draft.projectId = projectId;
   hideHashProjectPicker();
   inputEl.focus();
   updateMirror();
@@ -246,8 +237,8 @@ function showAtDatePicker(inputEl, rawQuery) {
 
 function selectAtDate(inputEl, iso, label) {
   inputEl.value = inputEl.value.replace(/@[a-zA-Z0-9 ]*$/, `@${label || iso}`);
-  pendingDeadline = iso;
-  pendingDeadlineLabel = label || iso;
+  draft.deadline = iso;
+  draft.deadlineLabel = label || iso;
   hideAtDatePicker();
   inputEl.focus();
   updateMirror();
@@ -394,8 +385,8 @@ function updateBadge() {
 
 function addTask(text) {
   let title = text;
-  if (pendingProjectName) title = title.replace(`#${pendingProjectName}`, '');
-  if (pendingDeadlineLabel) title = title.replace(`@${pendingDeadlineLabel}`, '');
+  if (draft.projectName) title = title.replace(`#${draft.projectName}`, '');
+  if (draft.deadlineLabel) title = title.replace(`@${draft.deadlineLabel}`, '');
   title = title.replace(/\s+/g, ' ').trim();
 
   const bucket = currentView === 'focus' ? 'today' : 'anytime';
@@ -406,13 +397,10 @@ function addTask(text) {
     completed: false,
     createdAt: new Date().toISOString(),
     completedAt: null,
-    projectId: pendingProjectId || null,
-    deadline: pendingDeadline || null,
+    projectId: draft.projectId || null,
+    deadline: draft.deadline || null,
   });
-  pendingProjectId = null;
-  pendingProjectName = null;
-  pendingDeadline = null;
-  pendingDeadlineLabel = null;
+  draft.reset();
   saveTasks();
   renderTasks();
 }
@@ -1209,14 +1197,14 @@ function updateMirror() {
   const input  = document.getElementById('task-input');
   if (!mirror || !input) return;
   let html = escapeHtml(input.value);
-  if (pendingDeadlineLabel) {
-    const escaped = escapeHtml(`@${pendingDeadlineLabel}`);
+  if (draft.deadlineLabel) {
+    const escaped = escapeHtml(`@${draft.deadlineLabel}`);
     html = html.split(escaped).join(`<span class="token-date">${escaped}</span>`);
   }
-  if (pendingProjectName) {
-    const proj    = projects.find(p => p.name === pendingProjectName);
+  if (draft.projectName) {
+    const proj    = projects.find(p => p.name === draft.projectName);
     const color   = proj ? proj.color : '#6366f1';
-    const escaped = escapeHtml(`#${pendingProjectName}`);
+    const escaped = escapeHtml(`#${draft.projectName}`);
     html = html.split(escaped).join(`<span class="token-label" style="color:${color};background:${color}14;">${escaped}</span>`);
   }
   mirror.innerHTML = html;
@@ -1371,8 +1359,8 @@ document.addEventListener('DOMContentLoaded', () => {
   input.addEventListener('input', () => {
     const val = input.value;
 
-    if (pendingProjectId && !val.includes(`#${pendingProjectName}`)) { pendingProjectId = null; pendingProjectName = null; }
-    if (pendingDeadline && !val.includes('@')) { pendingDeadline = null; pendingDeadlineLabel = null; }
+    if (draft.projectId && !val.includes(`#${draft.projectName}`)) { draft.projectId = null; draft.projectName = null; }
+    if (draft.deadline && !val.includes('@')) { draft.deadline = null; draft.deadlineLabel = null; }
 
     const hashMatch = val.match(/#(\S*)$/);
     if (hashMatch) {

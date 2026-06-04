@@ -2,6 +2,13 @@
 const fs   = require('fs');
 const path = require('path');
 
+const COLOR_PALETTE = ['#6366f1','#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#ec4899','#a855f7'];
+
+function getNextColor(projects) {
+  const used = (projects || []).map(p => p.color);
+  return COLOR_PALETTE.find(c => !used.includes(c)) ?? COLOR_PALETTE[(projects || []).length % COLOR_PALETTE.length];
+}
+
 function migrateTasks(data) {
   let changed = false;
   data.tasks = (data.tasks || []).map(task => {
@@ -58,4 +65,4 @@ function createStore(dataDir, { legacyDataDir } = {}) {
   return { read, write, dataFile };
 }
 
-module.exports = { createStore, migrateTasks };
+module.exports = { createStore, migrateTasks, COLOR_PALETTE, getNextColor };
