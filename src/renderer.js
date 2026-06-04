@@ -62,22 +62,65 @@ function assignDeadlineToTask(taskId, deadline) {
   if (task) { task.deadline = deadline; saveTasks(); renderTasks(); }
 }
 
-// --- Popover positioning ---
+// --- Popover primitives ---
 
-function positionPopover(el, anchorRect) {
+function positionPopover(el, anchorRect, { alignLeft = false } = {}) {
   const pw = el.offsetWidth;
   const ph = el.offsetHeight;
   const wr = window.innerWidth;
   const wh = window.innerHeight;
-  // Right-align to anchor's right edge, clamped to viewport
-  let left = anchorRect.right - pw;
+  let left = alignLeft ? anchorRect.left : anchorRect.right - pw;
   left = Math.max(8, Math.min(left, wr - pw - 8));
-  // Below anchor; flip above if it would overflow the bottom
   let top = anchorRect.bottom + 4;
   if (top + ph > wh - 8) top = anchorRect.top - ph - 4;
   top = Math.max(8, Math.min(top, wh - ph - 8));
   el.style.left = `${left}px`;
   el.style.top  = `${top}px`;
+}
+
+function makePopover(width, withPadding = false) {
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:1px solid #e4e4e7;width:${width}px;z-index:1000;overflow:hidden;${withPadding ? 'padding:4px 0;' : ''}`;
+  return el;
+}
+
+function onOutsideClick(el, onClose) {
+  const handler = (e) => { if (!el.contains(e.target)) { cleanup(); onClose(); } };
+  function cleanup() { document.removeEventListener('mousedown', handler); }
+  setTimeout(() => document.addEventListener('mousedown', handler), 0);
+  return cleanup;
+}
+
+function makeDotRow(label, color, onClick) {
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:#3f3f46;';
+  const dot = document.createElement('span');
+  dot.style.cssText = color
+    ? `width:7px;height:7px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block;`
+    : 'width:7px;height:7px;border-radius:50%;border:1.5px solid #d4d4d8;flex-shrink:0;display:inline-block;box-sizing:border-box;';
+  const text = document.createElement('span');
+  text.textContent = label;
+  row.appendChild(dot); row.appendChild(text);
+  row.addEventListener('mouseover', () => { row.style.background = '#f4f4f5'; });
+  row.addEventListener('mouseout',  () => { row.style.background = ''; });
+  row.addEventListener('mousedown', (e) => { e.preventDefault(); onClick(); });
+  return row;
+}
+
+function makeTextRow(label, onClick) {
+  const row = document.createElement('div');
+  row.style.cssText = 'padding:6px 12px;cursor:pointer;font-size:12px;color:#3f3f46;';
+  row.textContent = label;
+  row.addEventListener('mouseover', () => { row.style.background = '#f4f4f5'; });
+  row.addEventListener('mouseout',  () => { row.style.background = ''; });
+  row.addEventListener('mousedown', (e) => { e.preventDefault(); onClick(); });
+  return row;
+}
+
+function makeSep() {
+  const d = document.createElement('div');
+  d.style.cssText = 'border-top:1px solid #e4e4e7;margin:4px 0;';
+  return d;
 }
 
 // --- Hash project picker (# inline syntax) ---
@@ -91,8 +134,7 @@ function showHashProjectPicker(inputEl, query) {
 
   if (filtered.length === 0 && !(q && !exactMatch)) { hideHashProjectPicker(); return; }
 
-  const picker = document.createElement('div');
-  picker.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:1px solid #e4e4e7;width:200px;z-index:1000;overflow:hidden;padding:4px 0;';
+  const picker = makePopover(200, true);
   picker._items = [];
 
   const setHighlight = (idx) => {
@@ -134,10 +176,7 @@ function showHashProjectPicker(inputEl, query) {
   document.body.appendChild(picker);
   activeHashPicker = picker;
   setHighlight(0);
-
-  const rect = inputEl.getBoundingClientRect();
-  picker.style.top  = `${rect.bottom + 4}px`;
-  picker.style.left = `${rect.left}px`;
+  positionPopover(picker, inputEl.getBoundingClientRect(), { alignLeft: true });
 }
 
 function selectHashProject(inputEl, projectId) {
@@ -163,8 +202,7 @@ function showAtDatePicker(inputEl, rawQuery) {
   const suggestions = parseAtQuery(rawQuery);
   if (!suggestions.length) return;
 
-  const picker = document.createElement('div');
-  picker.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.10);border:1px solid #e4e4e7;width:220px;z-index:1000;overflow:hidden;padding:4px 0;';
+  const picker = makePopover(220, true);
   picker._items = [];
 
   const setHighlight = (idx) => {
@@ -203,10 +241,7 @@ function showAtDatePicker(inputEl, rawQuery) {
   document.body.appendChild(picker);
   activeAtPicker = picker;
   setHighlight(0);
-
-  const rect = inputEl.getBoundingClientRect();
-  picker.style.top  = `${rect.bottom + 4}px`;
-  picker.style.left = `${rect.left}px`;
+  positionPopover(picker, inputEl.getBoundingClientRect(), { alignLeft: true });
 }
 
 function selectAtDate(inputEl, iso, label) {
@@ -230,31 +265,12 @@ function renderPickerOptions(container, query) {
   const filtered = q ? projects.filter(p => p.name.toLowerCase().includes(q)) : projects;
   const exactMatch = projects.some(p => p.name.toLowerCase() === q);
 
-  const makeOption = (label, color, onClick) => {
-    const opt = document.createElement('div');
-    opt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:#3f3f46;';
-    const dot = document.createElement('span');
-    if (color) {
-      dot.style.cssText = `width:7px;height:7px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block;`;
-    } else {
-      dot.style.cssText = 'width:7px;height:7px;border-radius:50%;border:1.5px solid #d4d4d8;flex-shrink:0;display:inline-block;box-sizing:border-box;';
-    }
-    opt.appendChild(dot);
-    const text = document.createElement('span');
-    text.textContent = label;
-    opt.appendChild(text);
-    opt.addEventListener('mouseover', () => { opt.style.background = '#f4f4f5'; });
-    opt.addEventListener('mouseout',  () => { opt.style.background = ''; });
-    opt.addEventListener('mousedown', (e) => { e.preventDefault(); onClick(); });
-    container.appendChild(opt);
-  };
-
   const activeTask = tasks.find(t => t.id === activePickerTaskId);
   if (activeTask && activeTask.projectId) {
-    makeOption('None', null, () => { assignProjectToTask(activePickerTaskId, null); hideProjectPicker(); });
+    container.appendChild(makeDotRow('None', null, () => { assignProjectToTask(activePickerTaskId, null); hideProjectPicker(); }));
   }
   filtered.forEach(p => {
-    makeOption(p.name, p.color, () => { assignProjectToTask(activePickerTaskId, p.id); hideProjectPicker(); });
+    container.appendChild(makeDotRow(p.name, p.color, () => { assignProjectToTask(activePickerTaskId, p.id); hideProjectPicker(); }));
   });
 
   if (q && !exactMatch) {
@@ -283,8 +299,7 @@ function showProjectPicker(anchorEl, taskId) {
   hideProjectPicker(); hideDeadlinePicker();
   activePickerTaskId = taskId;
 
-  const picker = document.createElement('div');
-  picker.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:1px solid #e4e4e7;width:200px;z-index:1000;overflow:hidden;';
+  const picker = makePopover(200);
   const inputEl = document.createElement('input');
   inputEl.type = 'text';
   inputEl.placeholder = 'Find or create…';
@@ -314,38 +329,22 @@ function showDeadlinePicker(anchorEl, taskId) {
   hideDeadlinePicker(); hideProjectPicker();
   activeDueDatePickerTaskId = taskId;
 
-  const picker = document.createElement('div');
-  picker.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:1px solid #e4e4e7;width:160px;z-index:1000;overflow:hidden;padding:4px 0;';
+  const picker = makePopover(160, true);
 
   const today    = new Date();
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
   const nextWeek = new Date(today); nextWeek.setDate(nextWeek.getDate() + 7);
 
-  const makeOption = (label, value) => {
-    const opt = document.createElement('div');
-    opt.style.cssText = 'padding:6px 12px;cursor:pointer;font-size:12px;color:#3f3f46;';
-    opt.textContent = label;
-    opt.addEventListener('mouseover', () => { opt.style.background = '#f4f4f5'; });
-    opt.addEventListener('mouseout',  () => { opt.style.background = ''; });
-    opt.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      assignDeadlineToTask(activeDueDatePickerTaskId, value);
-      hideDeadlinePicker();
-    });
-    picker.appendChild(opt);
-  };
-
-  const currentTaskForPicker = tasks.find(t => t.id === activeDueDatePickerTaskId);
+  const dl = activeDueDatePickerTaskId;
+  const currentTaskForPicker = tasks.find(t => t.id === dl);
   if (currentTaskForPicker && currentTaskForPicker.deadline) {
-    makeOption('No deadline', null);
+    picker.appendChild(makeTextRow('No deadline', () => { assignDeadlineToTask(dl, null); hideDeadlinePicker(); }));
   }
-  makeOption('Today',     toLocalISO(today));
-  makeOption('Tomorrow',  toLocalISO(tomorrow));
-  makeOption('In a week', toLocalISO(nextWeek));
+  picker.appendChild(makeTextRow('Today',     () => { assignDeadlineToTask(dl, toLocalISO(today));    hideDeadlinePicker(); }));
+  picker.appendChild(makeTextRow('Tomorrow',  () => { assignDeadlineToTask(dl, toLocalISO(tomorrow)); hideDeadlinePicker(); }));
+  picker.appendChild(makeTextRow('In a week', () => { assignDeadlineToTask(dl, toLocalISO(nextWeek)); hideDeadlinePicker(); }));
 
-  const divider = document.createElement('div');
-  divider.style.cssText = 'border-top:1px solid #e4e4e7;margin:4px 0;';
-  picker.appendChild(divider);
+  picker.appendChild(makeSep());
 
   const dateRow = document.createElement('div');
   dateRow.style.cssText = 'padding:4px 12px 8px;';
@@ -364,14 +363,12 @@ function showDeadlinePicker(anchorEl, taskId) {
   activeDueDatePicker = picker;
   positionPopover(picker, anchorEl.getBoundingClientRect());
 
-  const onOutsideClick = (e) => { if (!picker.contains(e.target)) hideDeadlinePicker(); };
-  setTimeout(() => document.addEventListener('mousedown', onOutsideClick), 0);
-  picker._onOutsideClick = onOutsideClick;
+  picker._cleanupOutside = onOutsideClick(picker, hideDeadlinePicker);
 }
 
 function hideDeadlinePicker() {
   if (activeDueDatePicker) {
-    if (activeDueDatePicker._onOutsideClick) document.removeEventListener('mousedown', activeDueDatePicker._onOutsideClick);
+    if (activeDueDatePicker._cleanupOutside) activeDueDatePicker._cleanupOutside();
     activeDueDatePicker.remove();
     activeDueDatePicker = null;
     activeDueDatePickerTaskId = null;
@@ -673,10 +670,13 @@ function renderFocusView(container) {
 }
 
 function showProjectFilterPicker(anchorEl) {
-  if (activeProjectFilterPicker) { activeProjectFilterPicker.remove(); activeProjectFilterPicker = null; }
+  if (activeProjectFilterPicker) {
+    if (activeProjectFilterPicker._cleanupOutside) activeProjectFilterPicker._cleanupOutside();
+    activeProjectFilterPicker.remove();
+    activeProjectFilterPicker = null;
+  }
 
-  const picker = document.createElement('div');
-  picker.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:1px solid #e4e4e7;width:180px;z-index:1000;overflow:hidden;';
+  const picker = makePopover(180);
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
@@ -735,10 +735,7 @@ function showProjectFilterPicker(anchorEl) {
 
   positionPopover(picker, anchorRect);
 
-  const onOutside = (e) => {
-    if (!picker.contains(e.target)) { picker.remove(); activeProjectFilterPicker = null; document.removeEventListener('mousedown', onOutside); }
-  };
-  setTimeout(() => document.addEventListener('mousedown', onOutside), 0);
+  picker._cleanupOutside = onOutsideClick(picker, () => { picker.remove(); activeProjectFilterPicker = null; });
   setTimeout(() => searchInput.focus(), 0);
 }
 
@@ -946,8 +943,7 @@ function showDotsMenu(anchorEl, taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
 
-  const menu = document.createElement('div');
-  menu.style.cssText = 'position:fixed;background:#fafaf9;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);border:1px solid #e4e4e7;width:176px;z-index:1000;overflow:hidden;';
+  const menu = makePopover(176);
 
   const anchorRect = anchorEl.getBoundingClientRect();
 
@@ -971,12 +967,6 @@ function showDotsMenu(anchorEl, taskId) {
     item.addEventListener('mouseout',  () => { item.style.background = ''; });
     item.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); onClick(); });
     return item;
-  }
-
-  function makeSep() {
-    const d = document.createElement('div');
-    d.style.cssText = 'border-top:1px solid #e4e4e7;margin:4px 0;';
-    return d;
   }
 
   function makeBack(onClick) {
@@ -1082,9 +1072,7 @@ function showDotsMenu(anchorEl, taskId) {
     makeOpt('Tomorrow',  toLocalISO(tomorrow));
     makeOpt('In a week', toLocalISO(nextWeek));
 
-    const divider = document.createElement('div');
-    divider.style.cssText = 'border-top:1px solid #e4e4e7;margin:4px 0;';
-    wrap.appendChild(divider);
+    wrap.appendChild(makeSep());
 
     const dateRow = document.createElement('div');
     dateRow.style.cssText = 'padding:4px 12px 8px;';
@@ -1106,14 +1094,12 @@ function showDotsMenu(anchorEl, taskId) {
   activeDotsMenu = menu;
   reposition();
 
-  const onOutside = (e) => { if (!menu.contains(e.target)) hideDotsMenu(); };
-  setTimeout(() => document.addEventListener('mousedown', onOutside), 0);
-  menu._onOutside = onOutside;
+  menu._cleanupOutside = onOutsideClick(menu, hideDotsMenu);
 }
 
 function hideDotsMenu() {
   if (activeDotsMenu) {
-    if (activeDotsMenu._onOutside) document.removeEventListener('mousedown', activeDotsMenu._onOutside);
+    if (activeDotsMenu._cleanupOutside) activeDotsMenu._cleanupOutside();
     activeDotsMenu.remove();
     activeDotsMenu = null;
   }
