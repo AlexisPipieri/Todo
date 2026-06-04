@@ -1,0 +1,9 @@
+node_modules
+dist
+src
+mcp
+assets
+*.plist
+package-lock.json
+main.js
+tailwind.config.js
