@@ -2,6 +2,7 @@ const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu, shell, dia
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
+const { createStore } = require('./src/task-store');
 
 let tray = null;
 let mainWindow = null;
@@ -9,65 +10,12 @@ let mainWindow = null;
 const DATA_DIR = process.env.TDY_ENV === 'test'
   ? path.join(app.getPath('appData'), 'tdy-test')
   : app.getPath('userData');
-const DATA_FILE = path.join(DATA_DIR, 'tasks.json');
 
-// Migrate v1 tasks to v2 data model
-function migrateTasks(data) {
-  let changed = false;
-  data.tasks = (data.tasks || []).map(task => {
-    const t = { ...task };
-    if ('text' in t) { t.title = t.text; delete t.text; changed = true; }
-    if (!t.bucket) { t.bucket = 'anytime'; changed = true; }
-    if ('dueDate' in t) { t.deadline = t.dueDate ?? null; delete t.dueDate; changed = true; }
-    if ('priority' in t) { delete t.priority; changed = true; }
-    return t;
-  });
-  return changed;
-}
+const store = createStore(DATA_DIR, {
+  legacyDataDir: path.join(app.getPath('appData'), 'menutodo'),
+});
+const DATA_FILE = store.dataFile;
 
-// One-time migration from old menutodo data directory
-function migrateDataDir() {
-  if (fs.existsSync(DATA_FILE)) return;
-  const oldFile = path.join(app.getPath('appData'), 'menutodo', 'tasks.json');
-  if (fs.existsSync(oldFile)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.copyFileSync(oldFile, DATA_FILE);
-  }
-}
-
-// Ensure data directory exists
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ tasks: [] }, null, 2));
-  }
-}
-
-// Load tasks from file
-function loadTasks() {
-  migrateDataDir();
-  ensureDataDir();
-  try {
-    const data = fs.readFileSync(DATA_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    const changed = migrateTasks(parsed);
-    if (changed) saveTasks(parsed);
-    return parsed;
-  } catch (e) {
-    return { tasks: [], projects: [] };
-  }
-}
-
-// Save tasks to file
-function saveTasks(data) {
-  ensureDataDir();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
-
-// Process rollover: uncompleted tasks from previous days carry over automatically.
-// Completed tasks are kept in full for history display.
 function processRollover(data) {
   return data;
 }
@@ -170,19 +118,14 @@ function createTray() {
 
 // IPC handlers
 ipcMain.handle('load-tasks', () => {
-  const data = loadTasks();
+  const data = store.read();
   const processed = processRollover(data);
-
-  // Save processed data if it changed
-  if (JSON.stringify(data) !== JSON.stringify(processed)) {
-    saveTasks(processed);
-  }
-
+  if (JSON.stringify(data) !== JSON.stringify(processed)) store.write(processed);
   return processed;
 });
 
 ipcMain.handle('save-tasks', (event, data) => {
-  saveTasks(data);
+  store.write(data);
   return true;
 });
 

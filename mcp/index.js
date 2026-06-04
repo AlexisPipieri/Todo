@@ -2,28 +2,15 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
+import taskStoreModule from '../src/task-store.js';
 
-const DATA_DIR  = join(homedir(), 'Library', 'Application Support', 'tdy');
-const DATA_FILE = join(DATA_DIR, 'tasks.json');
+const { createStore } = taskStoreModule;
+const store = createStore(join(homedir(), 'Library', 'Application Support', 'tdy'));
 
 const COLOR_PALETTE = ['#6366f1','#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#ec4899','#a855f7'];
-
-function readData() {
-  try {
-    return JSON.parse(readFileSync(DATA_FILE, 'utf8'));
-  } catch {
-    return { tasks: [], projects: [] };
-  }
-}
-
-function writeData(data) {
-  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-  writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
 
 function getNextColor(projects) {
   const used = projects.map(p => p.color);
@@ -119,7 +106,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
-  const data = readData();
+  const data = store.read();
 
   if (name === 'list_tasks') {
     const filter = args?.filter || 'all';
@@ -142,7 +129,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       deadline:    args.deadline || null,
     };
     data.tasks.unshift(task);
-    writeData(data);
+    store.write(data);
     const project = projectId ? data.projects.find(p => p.id === projectId) : null;
     return {
       content: [{ type: 'text', text: `Added "${task.title}" to ${task.bucket}${task.deadline ? ` · due ${task.deadline}` : ''}${project ? ` · ${project.name}` : ''}` }],
@@ -154,7 +141,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (!task) return { content: [{ type: 'text', text: `Task not found: ${args.id}` }] };
     task.completed   = true;
     task.completedAt = new Date().toISOString();
-    writeData(data);
+    store.write(data);
     return { content: [{ type: 'text', text: `Completed: "${task.title}"` }] };
   }
 
@@ -165,7 +152,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (args.bucket   !== undefined) task.bucket    = args.bucket;
     if (args.deadline !== undefined) task.deadline  = args.deadline || null;
     if (args.project  !== undefined) task.projectId = args.project ? resolveProject(data, args.project) : null;
-    writeData(data);
+    store.write(data);
     return { content: [{ type: 'text', text: `Updated: "${task.title}"` }] };
   }
 
