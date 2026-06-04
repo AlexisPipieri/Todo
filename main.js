@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu, shell } = require('electron');
+const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu, shell, dialog, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
@@ -98,6 +98,36 @@ function createWindow() {
   });
 }
 
+function checkForUpdates() {
+  let responded = false;
+
+  const onNotAvailable = () => {
+    if (responded) return;
+    responded = true;
+    dialog.showMessageBox({ type: 'info', title: 'tdy', message: 'You\'re up to date!', detail: `Version ${app.getVersion()} is the latest.`, buttons: ['OK'] });
+  };
+
+  const onAvailable = () => { responded = true; };
+
+  const onDownloaded = () => {
+    responded = true;
+    dialog.showMessageBox({ type: 'info', title: 'tdy', message: 'Update ready', detail: 'A new version has been downloaded. Restart to apply it.', buttons: ['Restart Now', 'Later'] })
+      .then(({ response }) => { if (response === 0) autoUpdater.quitAndInstall(); });
+  };
+
+  const onError = (err) => {
+    if (responded) return;
+    responded = true;
+    dialog.showMessageBox({ type: 'error', title: 'tdy', message: 'Update check failed', detail: err.message, buttons: ['OK'] });
+  };
+
+  autoUpdater.once('update-not-available', onNotAvailable);
+  autoUpdater.once('update-available', onAvailable);
+  autoUpdater.once('update-downloaded', onDownloaded);
+  autoUpdater.once('error', onError);
+  autoUpdater.checkForUpdates();
+}
+
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'));
   icon.setTemplateImage(true);
@@ -109,7 +139,7 @@ function createTray() {
     const menu = Menu.buildFromTemplate([
       { label: `tdy v${app.getVersion()}`, enabled: false },
       { type: 'separator' },
-      { label: 'Check for Updates…', click: () => autoUpdater.checkForUpdatesAndNotify() },
+      { label: 'Check for Updates…', click: () => checkForUpdates() },
       { type: 'separator' },
       { label: 'Show Data File in Finder', click: () => shell.showItemInFolder(DATA_FILE) },
       { label: 'Restart', click: () => { app.relaunch(); app.quit(); } },
