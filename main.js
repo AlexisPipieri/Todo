@@ -4,8 +4,11 @@ const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const { createStore } = require('./src/task-store');
 
+app.setName('tdy');
+
 let tray = null;
 let mainWindow = null;
+let settingsWindow = null;
 
 const DATA_DIR = process.env.TDY_ENV === 'test'
   ? path.join(app.getPath('appData'), 'tdy-test')
@@ -37,12 +40,37 @@ function createWindow() {
 
   mainWindow.loadFile('src/index.html');
 
-  if (!app.isPackaged) {
-    mainWindow.once('ready-to-show', () => mainWindow.show());
-  }
 
   mainWindow.on('blur', () => {
     mainWindow.hide();
+  });
+}
+
+function createSettingsWindow() {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus();
+    return;
+  }
+
+  settingsWindow = new BrowserWindow({
+    width: 820,
+    height: 540,
+    title: 'Settings',
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  settingsWindow.loadFile('src/settings.html');
+  app.dock?.show();
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+    if (app.isPackaged) app.dock?.hide();
   });
 }
 
@@ -87,11 +115,9 @@ function createTray() {
     const menu = Menu.buildFromTemplate([
       { label: `tdy v${app.getVersion()}`, enabled: false },
       { type: 'separator' },
-      { label: 'Check for Updates…', click: () => checkForUpdates() },
+      { label: 'Settings…', click: () => createSettingsWindow() },
       { type: 'separator' },
-      { label: 'Show Data File in Finder', click: () => shell.showItemInFolder(DATA_FILE) },
       { label: 'Restart', click: () => { app.relaunch(); app.quit(); } },
-      { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
     ]);
     tray.popUpContextMenu(menu);
@@ -129,10 +155,38 @@ ipcMain.handle('save-tasks', (event, data) => {
   return true;
 });
 
-// Update the badge count on the tray icon
 ipcMain.handle('show-in-finder', () => {
   shell.showItemInFolder(DATA_FILE);
 });
+
+ipcMain.handle('open-settings', () => {
+  createSettingsWindow();
+});
+
+ipcMain.handle('get-settings', () => ({
+  loginItem: app.getLoginItemSettings().openAtLogin,
+  dataPath: DATA_FILE,
+  version: app.getVersion(),
+}));
+
+ipcMain.handle('set-login-item', (event, value) => {
+  app.setLoginItemSettings({ openAtLogin: value });
+});
+
+ipcMain.handle('check-for-updates', () => {
+  checkForUpdates();
+});
+
+ipcMain.handle('get-labels', () => store.read());
+
+ipcMain.handle('update-labels', (event, data) => {
+  store.write(data);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('reload-tasks');
+  }
+});
+
+// Update the badge count on the tray icon
 
 ipcMain.handle('update-badge', (event, count) => {
   if (tray) {
@@ -163,14 +217,49 @@ ipcMain.handle('show-context-menu', (event, taskId, { isFirst, isLast, bucket, h
   menu.popup({ window: BrowserWindow.fromWebContents(event.sender) });
 });
 
+function buildAppMenu() {
+  return Menu.buildFromTemplate([
+    {
+      label: 'tdy',
+      submenu: [
+        { label: 'About tdy', role: 'about' },
+        { type: 'separator' },
+        { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: () => createSettingsWindow() },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    { role: 'windowMenu' },
+  ]);
+}
+
 app.whenReady().then(() => {
   if (app.isPackaged) app.dock?.hide();
 
+  Menu.setApplicationMenu(buildAppMenu());
   createWindow();
   createTray();
   startFileWatcher();
 
-  if (app.isPackaged) {
+  if (!app.isPackaged) {
+    createSettingsWindow();
+  } else {
     setTimeout(() => autoUpdater.checkForUpdatesAndNotify(), 3000);
   }
 });
@@ -185,7 +274,7 @@ app.on('window-all-closed', () => {
 let fileWatcherDebounce = null;
 
 function startFileWatcher() {
-  ensureDataDir();
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.watch(DATA_DIR, (eventType, filename) => {
     if (filename !== 'tasks.json') return;
     clearTimeout(fileWatcherDebounce);

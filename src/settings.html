@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings</title>
+  <link rel="stylesheet" href="../node_modules/@phosphor-icons/web/src/regular/style.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      color: #18181b;
+      background: #fafaf9;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #app {
+      display: flex;
+      height: 100%;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 148px;
+      flex-shrink: 0;
+      background: #f4f4f5;
+      border-right: 1px solid #e4e4e7;
+      padding: 12px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      /* push content below macOS traffic lights */
+      padding-top: 52px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 7px;
+      background: none;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 400;
+      color: #52525b;
+      cursor: pointer;
+      text-align: left;
+      transition: background 80ms, color 80ms;
+    }
+    .nav-item:hover { background: #e9e9ec; color: #18181b; }
+    .nav-item.active {
+      background: white;
+      color: #18181b;
+      font-weight: 500;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .nav-item i { font-size: 15px; color: inherit; opacity: 0.8; }
+
+    /* ── Content ── */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 28px 24px;
+      padding-top: 60px;
+    }
+
+    section { display: none; }
+    section.active { display: block; }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #09090b;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+    }
+
+    /* ── Setting group ── */
+    .setting-group {
+      margin-bottom: 20px;
+    }
+
+    .group-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #a1a1aa;
+      margin-bottom: 6px;
+      padding: 0 2px;
+    }
+
+    .group-body {
+      background: white;
+      border: 1px solid #e4e4e7;
+      border-radius: 9px;
+      overflow: hidden;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 14px;
+    }
+    .setting-row + .setting-row {
+      border-top: 1px solid #f4f4f5;
+    }
+
+    .setting-label {
+      font-size: 13px;
+      color: #18181b;
+    }
+    .setting-desc {
+      font-size: 11.5px;
+      color: #a1a1aa;
+      margin-top: 1px;
+    }
+
+    /* ── Toggle ── */
+    .toggle {
+      position: relative;
+      width: 34px;
+      height: 20px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #d4d4d8;
+      border-radius: 10px;
+      transition: background 150ms;
+    }
+    .toggle input:checked ~ .toggle-track { background: #6366f1; }
+    .toggle-thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 150ms;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.22);
+    }
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(14px); }
+
+    /* ── Data path ── */
+    .data-path {
+      font-size: 12px;
+      color: #71717a;
+      font-variant-numeric: tabular-nums;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      margin-right: 10px;
+    }
+
+    .finder-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      background: none;
+      border: 1px solid #d4d4d8;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      color: #52525b;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 80ms, border-color 80ms;
+    }
+    .finder-btn:hover { background: #f4f4f5; border-color: #a1a1aa; }
+    .finder-btn i { font-size: 13px; }
+
+    /* ── Labels ── */
+    .labels-page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .new-label-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      background: #6366f1;
+      border: none;
+      border-radius: 7px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: white;
+      cursor: pointer;
+      transition: opacity 100ms;
+    }
+    .new-label-btn:hover { opacity: 0.88; }
+    .new-label-btn i { font-size: 13px; }
+
+    /* Grid columns: dot | name | tasks | actions */
+    .labels-table-header,
+    .label-row {
+      display: grid;
+      grid-template-columns: 30px 1fr 90px 36px;
+      align-items: center;
+    }
+
+    .labels-table-header {
+      padding: 0 4px 8px;
+      border-bottom: 1px solid #e4e4e7;
+      margin-bottom: 4px;
+    }
+
+    .col-name-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #a1a1aa;
+      cursor: pointer;
+      padding: 0;
+      transition: color 80ms;
+    }
+    .col-name-header:hover { color: #52525b; }
+    .col-name-header i { font-size: 11px; }
+
+    .col-tasks-header {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #a1a1aa;
+      text-align: right;
+      padding-right: 6px;
+    }
+
+    #labels-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .label-row {
+      padding: 6px 4px;
+      border-radius: 7px;
+      transition: background 80ms;
+      position: relative;
+    }
+    .label-row:hover { background: #f4f4f5; }
+
+    .color-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      justify-self: center;
+      transition: transform 100ms, box-shadow 100ms;
+    }
+    .color-dot:hover {
+      transform: scale(1.25);
+      box-shadow: 0 0 0 2px white, 0 0 0 3.5px currentColor;
+    }
+
+    .label-name-text {
+      font-size: 13px;
+      color: #18181b;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .label-name-edit {
+      width: 180px;
+      max-width: 100%;
+      border: 1px solid #d4d4d8;
+      border-radius: 5px;
+      padding: 3px 8px;
+      font-family: inherit;
+      font-size: 13px;
+      color: #18181b;
+      outline: none;
+      background: white;
+    }
+    .label-name-edit:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+    }
+
+    .task-count {
+      font-size: 12px;
+      color: #c4c4c7;
+      white-space: nowrap;
+      text-align: right;
+      padding-right: 6px;
+    }
+
+    .action-menu-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 6px;
+      background: none;
+      color: #a1a1aa;
+      cursor: pointer;
+      font-size: 15px;
+      opacity: 0;
+      transition: opacity 80ms, background 80ms, color 80ms;
+    }
+    .label-row:hover .action-menu-btn { opacity: 1; }
+    .action-menu-btn:hover { background: #e9e9ec; color: #18181b; }
+    .action-menu-btn.open { opacity: 1; background: #e9e9ec; color: #18181b; }
+
+    /* Action popover */
+    .action-popover {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 2px);
+      background: white;
+      border: 1px solid #e4e4e7;
+      border-radius: 9px;
+      padding: 4px;
+      min-width: 120px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      z-index: 200;
+    }
+
+    .action-popover-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      width: 100%;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 6px;
+      background: none;
+      font-family: inherit;
+      font-size: 13px;
+      color: #18181b;
+      cursor: pointer;
+      text-align: left;
+      transition: background 60ms;
+    }
+    .action-popover-item:hover { background: #f4f4f5; }
+    .action-popover-item.danger { color: #ef4444; }
+    .action-popover-item.danger:hover { background: #fee2e2; }
+    .action-popover-item i { font-size: 14px; color: inherit; }
+
+    /* Color swatch picker */
+    .swatch-picker {
+      position: absolute;
+      left: 0;
+      top: calc(100% + 4px);
+      background: white;
+      border: 1px solid #e4e4e7;
+      border-radius: 10px;
+      padding: 8px;
+      display: flex;
+      gap: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      z-index: 100;
+    }
+    .swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      transition: transform 100ms, box-shadow 100ms;
+    }
+    .swatch:hover { transform: scale(1.2); }
+    .swatch.active { box-shadow: 0 0 0 2px white, 0 0 0 3.5px currentColor; }
+
+    /* ── Confirm modal ── */
+    .confirm-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+      opacity: 0;
+      transition: opacity 120ms;
+    }
+    .confirm-backdrop.visible { opacity: 1; }
+
+    .confirm-modal {
+      background: white;
+      border-radius: 12px;
+      padding: 20px 22px 16px;
+      width: 300px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+      transform: scale(0.96);
+      transition: transform 120ms;
+    }
+    .confirm-backdrop.visible .confirm-modal { transform: scale(1); }
+
+    .confirm-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #09090b;
+      margin-bottom: 5px;
+    }
+    .confirm-detail {
+      font-size: 12.5px;
+      color: #71717a;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .confirm-cancel-btn {
+      padding: 6px 14px;
+      border: 1px solid #d4d4d8;
+      border-radius: 7px;
+      background: none;
+      font-family: inherit;
+      font-size: 13px;
+      color: #52525b;
+      cursor: pointer;
+      transition: background 80ms;
+    }
+    .confirm-cancel-btn:hover { background: #f4f4f5; }
+    .confirm-delete-btn {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 7px;
+      background: #ef4444;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      color: white;
+      cursor: pointer;
+      transition: opacity 80ms;
+    }
+    .confirm-delete-btn:hover { opacity: 0.88; }
+
+    /* ── About ── */
+    .about-app-name {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #09090b;
+    }
+    .about-version {
+      font-size: 12px;
+      color: #a1a1aa;
+      margin-top: 2px;
+    }
+    .about-icon {
+      width: 64px;
+      height: 64px;
+      background: #09090b;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .about-icon span {
+      font-size: 28px;
+      font-weight: 800;
+      color: white;
+      letter-spacing: -0.04em;
+    }
+    .check-updates-btn {
+      margin-top: 20px;
+      padding: 7px 16px;
+      background: #6366f1;
+      border: none;
+      border-radius: 7px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      color: white;
+      cursor: pointer;
+      transition: opacity 100ms;
+    }
+    .check-updates-btn:hover { opacity: 0.88; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <nav class="sidebar">
+      <button class="nav-item active" data-section="general">
+        <i class="ph ph-sliders"></i> General
+      </button>
+      <button class="nav-item" data-section="labels">
+        <i class="ph ph-tag"></i> Labels
+      </button>
+      <button class="nav-item" data-section="about">
+        <i class="ph ph-info"></i> About
+      </button>
+    </nav>
+
+    <div class="content">
+
+      <!-- General -->
+      <section id="section-general" class="active">
+        <div class="setting-group">
+          <div class="group-label">Launch</div>
+          <div class="group-body">
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Start tdy at login</div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="login-item-toggle">
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <div class="group-label">Data</div>
+          <div class="group-body">
+            <div class="setting-row">
+              <span class="data-path" id="data-path">—</span>
+              <button class="finder-btn" id="show-in-finder-btn">
+                <i class="ph ph-folder-open"></i> Show in Finder
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Labels -->
+      <section id="section-labels">
+        <div class="labels-page-header">
+          <h2 class="section-title" style="margin-bottom:0">Labels</h2>
+          <button class="new-label-btn" id="add-label-btn">
+            <i class="ph ph-plus"></i> New Label
+          </button>
+        </div>
+        <div class="labels-table-header">
+          <div></div>
+          <button class="col-name-header" id="sort-btn">
+            Name <i class="ph ph-arrow-up" id="sort-icon"></i>
+          </button>
+          <div class="col-tasks-header">Tasks</div>
+          <div></div>
+        </div>
+        <div id="labels-list"></div>
+      </section>
+
+      <!-- About -->
+      <section id="section-about">
+        <div class="about-icon">
+          <span>tdy</span>
+        </div>
+        <div class="about-app-name">tdy</div>
+        <div class="about-version" id="about-version">Version —</div>
+        <button class="check-updates-btn" id="check-updates-btn">Check for Updates…</button>
+      </section>
+
+    </div>
+  </div>
+  <script src="settings-renderer.js"></script>
+</body>
+</html>

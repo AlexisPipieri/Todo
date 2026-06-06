@@ -1268,51 +1268,10 @@ function showHistoryPanel() {
   });
 }
 
-// --- Settings panel ---
+// --- Settings ---
 
-function showSettings() {
-  if (document.getElementById('settings-panel')) return;
-
-  const panel = document.createElement('div');
-  panel.id = 'settings-panel';
-  panel.style.cssText = [
-    'position:absolute', 'inset:0', 'background:#fff', 'z-index:100',
-    'display:flex', 'flex-direction:column',
-    'opacity:0', 'transition:opacity 120ms ease',
-  ].join(';');
-
-  panel.innerHTML = `
-    <div style="display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid #e4e4e7;">
-      <button id="settings-back" style="background:none;border:none;cursor:pointer;padding:0;color:#71717a;display:flex;align-items:center;transition:color 60ms ease-out;">
-        <i class="ph ph-arrow-left" style="font-size:15px;"></i>
-      </button>
-      <span style="font-size:13px;font-weight:600;color:#09090b;letter-spacing:-0.01em;">Settings</span>
-    </div>
-    <div style="flex:1;overflow-y:auto;padding:8px 0;">
-      <div style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:#a1a1aa;letter-spacing:0.04em;text-transform:uppercase;">Data</div>
-      <button id="show-in-finder-btn" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:none;border:none;cursor:pointer;text-align:left;transition:background 60ms ease-out;" onmouseover="this.style.background='#f4f4f5'" onmouseout="this.style.background='none'">
-        <span style="font-size:13px;color:#09090b;">Open data file in Finder</span>
-        <i class="ph ph-arrow-square-out" style="font-size:14px;color:#a1a1aa;"></i>
-      </button>
-    </div>
-  `;
-
-  const app = document.getElementById('app');
-  app.style.position = 'relative';
-  app.appendChild(panel);
-  requestAnimationFrame(() => { panel.style.opacity = '1'; });
-
-  panel.querySelector('#settings-back').addEventListener('click', hideSettings);
-  panel.querySelector('#show-in-finder-btn').addEventListener('click', () => {
-    ipcRenderer.invoke('show-in-finder');
-  });
-}
-
-function hideSettings() {
-  const panel = document.getElementById('settings-panel');
-  if (!panel) return;
-  panel.style.opacity = '0';
-  setTimeout(() => { panel.remove(); }, 120);
+function openSettings() {
+  ipcRenderer.invoke('open-settings');
 }
 
 // --- Init ---
@@ -1321,7 +1280,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const input       = document.getElementById('task-input');
   const settingsBtn = document.getElementById('settings-btn');
 
-  settingsBtn?.addEventListener('click', showSettings);
+  settingsBtn?.addEventListener('click', openSettings);
   document.getElementById('history-footer-btn')?.addEventListener('click', () => showHistoryPanel());
 
 
