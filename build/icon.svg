@@ -15,5 +15,5 @@
   <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)" filter="url(#sh)"/>
   <rect x="101" y="101" width="822" height="822" rx="184" fill="none" stroke="url(#rim)" stroke-width="2"/>
   <path d="M318 540 L450 672 L670 402" fill="none" stroke="#1A1714" stroke-width="80" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="736" cy="288" r="42" fill="#6366F1"/>
+  <circle cx="736" cy="288" r="42" fill="#FF6A00"/>
 </svg>

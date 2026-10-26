@@ -33,7 +33,8 @@
       "main.js",
       "src/**/*",
       "assets/**/*",
-      "node_modules/@phosphor-icons/web/src/regular/**"
+      "node_modules/@phosphor-icons/web/src/regular/**",
+      "build/icon.png"
     ],
     "dmg": {
       "artifactName": "tdy-arm64.dmg"

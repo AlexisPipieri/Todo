@@ -481,21 +481,12 @@
       color: #a1a1aa;
       margin-top: 2px;
     }
+    /* The artwork has ~10% transparent margin for the shadow, so pull it back to align with the text */
     .about-icon {
-      width: 64px;
-      height: 64px;
-      background: #09090b;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 14px;
-    }
-    .about-icon span {
-      font-size: 28px;
-      font-weight: 800;
-      color: white;
-      letter-spacing: -0.04em;
+      display: block;
+      width: 88px;
+      height: 88px;
+      margin: -8px 0 6px -8px;
     }
     .check-updates-btn {
       margin-top: 20px;
@@ -581,9 +572,7 @@
 
       <!-- About -->
       <section id="section-about">
-        <div class="about-icon">
-          <span>tdy</span>
-        </div>
+        <img class="about-icon" src="../build/icon.png" alt="">
         <div class="about-app-name">tdy</div>
         <div class="about-version" id="about-version">Version —</div>
         <button class="check-updates-btn" id="check-updates-btn">Check for Updates…</button>

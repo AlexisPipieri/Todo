@@ -139,10 +139,17 @@ function createTray() {
   });
 }
 
-// Position window below the tray icon
+// Position window below the tray icon (top-center of the display if the icon is hidden, e.g. by a menu bar manager)
 function showWindowAtTray(bounds) {
-  const { x, y } = bounds;
   const { width } = mainWindow.getBounds();
+  let x, y;
+  if (bounds && bounds.width > 0) {
+    ({ x, y } = bounds);
+  } else {
+    const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+    x = area.x + Math.round(area.width / 2);
+    y = area.y;
+  }
 
   mainWindow.setPosition(Math.round(x - width / 2), y);
   mainWindow.show();
@@ -154,6 +161,7 @@ function showWindowAtTray(bounds) {
 app.on('second-instance', () => {
   if (mainWindow && tray) showWindowAtTray(tray.getBounds());
 });
+
 
 // IPC handlers
 ipcMain.handle('load-tasks', () => {
@@ -264,6 +272,7 @@ function buildAppMenu() {
 
 app.whenReady().then(() => {
   if (app.isPackaged) app.dock?.hide();
+  else app.dock?.setIcon(nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.png')));
 
   Menu.setApplicationMenu(buildAppMenu());
   createWindow();
