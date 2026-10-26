@@ -57,7 +57,8 @@
       "gatekeeperAssess": false,
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist",
-      "notarize": true
+      "notarize": true,
+      "icon": "build/icon.icns"
     },
     "publish": {
       "provider": "github",
