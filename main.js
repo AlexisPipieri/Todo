@@ -6,6 +6,13 @@ const { createStore } = require('./src/task-store');
 
 app.setName('tdy');
 
+// Single instance: two processes writing the same tasks.json would clobber each other.
+// Dev runs are exempt so `npm run dev` can coexist with the installed app.
+if (app.isPackaged && !app.requestSingleInstanceLock()) {
+  app.quit();
+  process.exit(0);
+}
+
 let tray = null;
 let mainWindow = null;
 let settingsWindow = null;
@@ -127,20 +134,26 @@ function createTray() {
     if (mainWindow.isVisible()) {
       mainWindow.hide();
     } else {
-      // Position window below the tray icon
-      const { x, y } = bounds;
-      const { width, height } = mainWindow.getBounds();
-
-      const windowX = Math.round(x - width / 2);
-      const windowY = y;
-
-      mainWindow.setPosition(windowX, windowY);
-      mainWindow.show();
-      mainWindow.focus();
-      mainWindow.webContents.send('window-shown');
+      showWindowAtTray(bounds);
     }
   });
 }
+
+// Position window below the tray icon
+function showWindowAtTray(bounds) {
+  const { x, y } = bounds;
+  const { width } = mainWindow.getBounds();
+
+  mainWindow.setPosition(Math.round(x - width / 2), y);
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.webContents.send('window-shown');
+}
+
+// Launching the app again (Spotlight, Finder) just brings up the existing window
+app.on('second-instance', () => {
+  if (mainWindow && tray) showWindowAtTray(tray.getBounds());
+});
 
 // IPC handlers
 ipcMain.handle('load-tasks', () => {
