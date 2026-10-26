@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # The tests are plain Node; skip downloading the Electron binary
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Syntax check
+        run: |
+          node --check main.js
+          for f in src/*.js; do node --check "$f"; done
+      - name: Generated CSS is up to date
+        run: |
+          npm run build:css
+          git diff --exit-code src/output.css
