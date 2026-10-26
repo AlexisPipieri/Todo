@@ -745,6 +745,12 @@ video {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.shadow {
+  --tw-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
 .shadow-lg {
   --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   --tw-shadow-colored: 0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);
@@ -1239,4 +1245,40 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #d4d4d8;
+}
+
+/* ── Update banner ── */
+
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 6px 6px 6px 10px;
+  background: #f4f4f5;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #52525b;
+}
+
+.update-banner[hidden] {
+  display: none;
+}
+
+.update-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  background: #18181b;
+  color: white;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 80ms ease-out;
+}
+
+.update-btn:hover {
+  opacity: 0.85;
 }

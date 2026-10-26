@@ -1359,6 +1359,15 @@ ipcRenderer.on('window-shown', () => {
 
 ipcRenderer.on('reload-tasks', () => { loadTasks(); });
 
+// ── Update banner ──
+function showUpdateBanner(version) {
+  document.getElementById('update-text').textContent = `tdy ${version} is ready`;
+  document.getElementById('update-banner').hidden = false;
+}
+ipcRenderer.on('update-ready', (event, version) => showUpdateBanner(version));
+ipcRenderer.invoke('get-update-ready').then(v => { if (v) showUpdateBanner(v); });
+document.getElementById('update-btn').addEventListener('click', () => ipcRenderer.invoke('install-update'));
+
 ipcRenderer.on('context-action', (event, { action, taskId }) => {
   switch (action) {
     case 'move-top':     moveToTop(taskId); break;

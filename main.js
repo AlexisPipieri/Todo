@@ -1,7 +1,8 @@
-const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu, shell, dialog, Notification } = require('electron');
+const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu, shell, dialog, Notification, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
+const { shouldCheck } = require('./src/update-policy');
 const { createStore } = require('./src/task-store');
 
 app.setName('tdy');
@@ -81,6 +82,30 @@ function createSettingsWindow() {
   });
 }
 
+// ── Background updates ───────────────────────────────────
+// Checks happen at natural moments (launch, window opened, wake) and are throttled to once a day.
+// Nothing is shown unless a new version has finished downloading.
+let updateReady = null;      // version string once downloaded
+let lastUpdateCheck = null;
+
+function checkForUpdatesInBackground() {
+  if (!app.isPackaged) return;
+  const now = Date.now();
+  if (!shouldCheck({ now, lastCheck: lastUpdateCheck, ready: updateReady })) return;
+  lastUpdateCheck = now;
+  autoUpdater.checkForUpdates().catch(() => { lastUpdateCheck = null; });  // offline: retry at the next moment
+}
+
+autoUpdater.on('update-downloaded', (info) => {
+  updateReady = info.version;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update-ready', updateReady);
+});
+autoUpdater.on('error', () => { lastUpdateCheck = null; });  // background failures stay silent
+
+function installUpdate() {
+  autoUpdater.quitAndInstall(false, true);
+}
+
 function checkForUpdates() {
   let responded = false;
 
@@ -121,6 +146,7 @@ function createTray() {
   tray.on('right-click', () => {
     const menu = Menu.buildFromTemplate([
       { label: `tdy v${app.getVersion()}`, enabled: false },
+      ...(updateReady ? [{ label: `Restart to update to v${updateReady}`, click: installUpdate }] : []),
       { type: 'separator' },
       { label: 'Settings…', click: () => createSettingsWindow() },
       { type: 'separator' },
@@ -155,6 +181,7 @@ function showWindowAtTray(bounds) {
   mainWindow.show();
   mainWindow.focus();
   mainWindow.webContents.send('window-shown');
+  checkForUpdatesInBackground();
 }
 
 // Launching the app again (Spotlight, Finder) just brings up the existing window
@@ -193,6 +220,9 @@ ipcMain.handle('get-settings', () => ({
 ipcMain.handle('set-login-item', (event, value) => {
   app.setLoginItemSettings({ openAtLogin: value });
 });
+
+ipcMain.handle('get-update-ready', () => updateReady);
+ipcMain.handle('install-update', () => installUpdate());
 
 ipcMain.handle('check-for-updates', () => {
   checkForUpdates();
@@ -282,7 +312,8 @@ app.whenReady().then(() => {
   if (!app.isPackaged) {
     createSettingsWindow();
   } else {
-    setTimeout(() => autoUpdater.checkForUpdatesAndNotify(), 3000);
+    setTimeout(checkForUpdatesInBackground, 3000);
+    powerMonitor.on('resume', checkForUpdatesInBackground);
   }
 });
 
