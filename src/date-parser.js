@@ -91,9 +91,15 @@ function parseAtQuery(raw, now = new Date()) {
     MONTHS.forEach(([fullName, abbrs, idx]) => {
       if (fullName.startsWith(mq) || abbrs.some(a => a.startsWith(mq))) {
         const dayNum = (dq && dq >= 1 && dq <= 31) ? dq : null;
-        let year = today.getFullYear();
-        const d = new Date(year, idx, dayNum || 1);
-        if (d <= today) d.setFullYear(year + 1);
+        // Next occurrence: an explicit day may be today, a bare month must be in the future.
+        // Skip years where the day doesn't exist (Feb 29, Feb 31) instead of letting Date overflow.
+        const upcoming = dayNum ? (d => d >= today) : (d => d > today);
+        let d = null;
+        for (let i = 0; i < 9 && !d; i++) {
+          const c = new Date(today.getFullYear() + i, idx, dayNum || 1);
+          if (c.getMonth() === idx && upcoming(c)) d = c;
+        }
+        if (!d) return;
         const mLabel = fullName[0].toUpperCase() + fullName.slice(1, 3);
         add(dayNum ? `${mLabel} ${dayNum}` : mLabel, d);
       }
