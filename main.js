@@ -341,7 +341,30 @@ function buildAppMenu() {
   ]);
 }
 
+// Run from the DMG (or Downloads), auto-update can't replace the app and "open at login"
+// points to a volume that goes away. Offer to move it before anything else starts.
+// Returns true when the app is being moved (it quits and relaunches from /Applications).
+function offerMoveToApplications() {
+  if (!app.isPackaged || app.isInApplicationsFolder()) return false;
+  app.focus({ steal: true });
+  const response = dialog.showMessageBoxSync({
+    type: 'question',
+    message: 'Move tdy to your Applications folder?',
+    detail: 'tdy is running from outside Applications. Moving it lets it update itself and open at login.',
+    buttons: ['Move to Applications', 'Not Now'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response !== 0) return false;
+  try {
+    return app.moveToApplicationsFolder();
+  } catch {
+    return false;  // e.g. the admin password prompt was cancelled: keep running where we are
+  }
+}
+
 app.whenReady().then(() => {
+  if (offerMoveToApplications()) return;
   if (app.isPackaged) app.dock?.hide();
   else app.dock?.setIcon(nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.png')));
 
