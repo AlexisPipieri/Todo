@@ -71,7 +71,8 @@
     "publish": {
       "provider": "github",
       "owner": "AlexisPipieri",
-      "repo": "Todo"
+      "repo": "tdy",
+      "releaseType": "release"
     }
   }
 }
