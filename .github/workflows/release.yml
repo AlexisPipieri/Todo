@@ -1,0 +1,102 @@
+name: Release
+
+# Pushing a version tag builds, signs, notarizes and publishes the app:
+#   npm version patch && git push --follow-tags
+# A tag with a suffix (v1.0.5-test.1) is published as a prerelease, which the landing page
+# ("latest") and in-app updates ignore: use it to test this pipeline without touching users.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write   # create the GitHub release
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      CSC_LINK: ${{ secrets.CSC_LINK }}                       # base64 of the Developer ID .p12
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}       # contents of the AuthKey_XXXX.p8 file
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Tag must match package.json version
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+
+      # electron-builder silently skips notarization when credentials are missing,
+      # which would publish an app macOS refuses to open. Fail loudly instead.
+      - name: Check signing secrets
+        shell: bash
+        run: |
+          missing=0
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY_P8 APPLE_API_KEY_ID APPLE_API_ISSUER; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing repository secret $name"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Write the App Store Connect API key
+        shell: bash
+        run: |
+          printf '%s' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/AuthKey.p8"
+          echo "APPLE_API_KEY=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+
+      - name: Build, sign and notarize (no publishing yet)
+        run: |
+          npm run build:css
+          npx electron-builder --mac dmg zip --publish never
+
+      - name: Verify the build before publishing
+        shell: bash
+        run: |
+          app="dist/mac-arm64/tdy.app"
+          spctl --assess --type execute -vv "$app" 2>&1 | tee spctl.txt
+          grep -q "source=Notarized Developer ID" spctl.txt || { echo "::error::App is not notarized"; exit 1; }
+          xcrun stapler validate "$app"
+          version="$(node -p "require('./package.json').version")"
+          grep -q "^version: $version$" dist/latest-mac.yml || { echo "::error::latest-mac.yml has the wrong version"; exit 1; }
+          grep -q "\.zip" dist/latest-mac.yml || { echo "::error::latest-mac.yml has no zip, in-app updates would fail"; exit 1; }
+          ls -la dist
+
+      - name: Publish the GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          pre=""
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then pre="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" \
+            dist/tdy-arm64.dmg dist/tdy-arm64.dmg.blockmap \
+            "dist/tdy-$version-arm64-mac.zip" "dist/tdy-$version-arm64-mac.zip.blockmap" \
+            dist/latest-mac.yml \
+            --title "tdy $version" --generate-notes --verify-tag $pre
+
+      - name: Remove the API key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
