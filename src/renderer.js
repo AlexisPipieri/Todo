@@ -1389,3 +1389,18 @@ ipcRenderer.on('context-action', (event, { action, taskId }) => {
     case 'delete': deleteTask(taskId); break;
   }
 });
+
+// ── Onboarding ──
+ipcRenderer.on('show-onboarding', (event, { iconX }) => {
+  const arrow = document.getElementById('onboarding-arrow');
+  // Clamp so the arrow stays inside the rounded window even if the icon is near a screen edge
+  const x = iconX == null ? window.innerWidth / 2 : Math.max(20, Math.min(iconX, window.innerWidth - 20));
+  arrow.style.left = `${x}px`;
+  document.getElementById('onboarding').hidden = false;
+  document.getElementById('onboarding-done').focus();
+});
+document.getElementById('onboarding-done').addEventListener('click', () => {
+  ipcRenderer.invoke('finish-onboarding', { openAtLogin: document.getElementById('onboarding-login').checked });
+  document.getElementById('onboarding').hidden = true;
+  document.getElementById('task-input').focus();
+});

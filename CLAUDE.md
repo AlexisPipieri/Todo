@@ -28,6 +28,7 @@ After installing, relaunch the app from /Applications or Spotlight.
 - **Completed section**: tasks completed today shown below active tasks as "N done today" toggle
 - **Views**: Today (focus view) and All (shows Today + Anytime sections with project filter chips)
 - **Tray icon**: left-click to show/hide window; right-click for menu with data file path, Show in Finder, Restart, Quit
+- **Onboarding**: on first launch (no `tasks.json` yet) the window opens under the tray icon with a welcome card pointing at it; dismissal is stored in `prefs.json`. Force it with `TDY_ONBOARDING=1 npm run dev:seed`
 - **Auto-rollover**: uncompleted tasks carry over daily; midnight check reloads tasks automatically
 
 ## Data

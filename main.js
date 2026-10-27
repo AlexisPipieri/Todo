@@ -27,6 +27,25 @@ const store = createStore(DATA_DIR, {
 });
 const DATA_FILE = store.dataFile;
 
+// ── Onboarding ───────────────────────────────────────────
+// The app has no dock icon and starts hidden, so a first launch looks like nothing happened.
+// On first launch the window opens under the tray icon with a short welcome card.
+// Existing users (tasks.json already there) are treated as onboarded.
+const PREFS_FILE = path.join(DATA_DIR, 'prefs.json');
+
+function readPrefs() {
+  try { return JSON.parse(fs.readFileSync(PREFS_FILE, 'utf8')); } catch { return {}; }
+}
+
+function writePrefs(prefs) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(PREFS_FILE, JSON.stringify(prefs, null, 2));
+}
+
+const needsOnboarding = process.env.TDY_ONBOARDING === '1'
+  || (!readPrefs().onboarded && !fs.existsSync(DATA_FILE));
+let onboarding = false;  // true while the welcome card is up: the window must not hide on blur
+
 function processRollover(data) {
   return data;
 }
@@ -50,7 +69,23 @@ function createWindow() {
 
 
   mainWindow.on('blur', () => {
-    mainWindow.hide();
+    if (!onboarding) mainWindow.hide();
+  });
+}
+
+function startOnboarding() {
+  onboarding = true;
+  mainWindow.webContents.once('did-finish-load', () => {
+    // Tray bounds can be empty right after creation; give the menu bar a moment to lay out
+    setTimeout(() => {
+      const bounds = tray.getBounds();
+      showWindowAtTray(bounds);
+      app.focus({ steal: true });
+      // Where the tray icon sits horizontally inside the window, so the arrow points at it
+      const win = mainWindow.getBounds();
+      const iconX = bounds.width > 0 ? Math.round(bounds.x + bounds.width / 2 - win.x) : null;
+      mainWindow.webContents.send('show-onboarding', { iconX });
+    }, 300);
   });
 }
 
@@ -221,6 +256,12 @@ ipcMain.handle('set-login-item', (event, value) => {
   app.setLoginItemSettings({ openAtLogin: value });
 });
 
+ipcMain.handle('finish-onboarding', (event, { openAtLogin }) => {
+  onboarding = false;
+  writePrefs({ ...readPrefs(), onboarded: true });
+  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin });
+});
+
 ipcMain.handle('get-update-ready', () => updateReady);
 ipcMain.handle('install-update', () => installUpdate());
 
@@ -308,8 +349,9 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   startFileWatcher();
+  if (needsOnboarding) startOnboarding();
 
-  if (!app.isPackaged) {
+  if (!app.isPackaged && !needsOnboarding) {
     createSettingsWindow();
   } else {
     setTimeout(checkForUpdatesInBackground, 3000);
