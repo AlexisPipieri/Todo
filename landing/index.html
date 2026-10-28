@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>tdy — Always there. Never in the way.</title>
-  <meta name="description" content="A minimal todo app that lives in your Mac menu bar.">
+  <title>tdy — A to-do list in your menu bar</title>
+  <meta name="description" content="A to-do list in your Mac menu bar. Free, no account, your tasks stay on your Mac.">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDI0IiBoZWlnaHQ9IjEwMjQiIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJiZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNGQ0ZBRjYiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjRUZFQUUwIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJyaW0iIHgxPSIwIiB5MT0iMCIgeDI9IjAiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjRkZGRkZGIiBzdG9wLW9wYWNpdHk9IjAuOSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxQTE3MTQiIHN0b3Atb3BhY2l0eT0iMC4xMiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxmaWx0ZXIgaWQ9InNoIiB4PSItMjAlIiB5PSItMjAlIiB3aWR0aD0iMTQwJSIgaGVpZ2h0PSIxNTAlIj4KICAgICAgPGZlRHJvcFNoYWRvdyBkeD0iMCIgZHk9IjE0IiBzdGREZXZpYXRpb249IjE0IiBmbG9vZC1jb2xvcj0iIzFBMTcxNCIgZmxvb2Qtb3BhY2l0eT0iMC4yOCIvPgogICAgPC9maWx0ZXI+CiAgPC9kZWZzPgogIDxyZWN0IHg9IjEwMCIgeT0iMTAwIiB3aWR0aD0iODI0IiBoZWlnaHQ9IjgyNCIgcng9IjE4NSIgZmlsbD0idXJsKCNiZykiIGZpbHRlcj0idXJsKCNzaCkiLz4KICA8cmVjdCB4PSIxMDEiIHk9IjEwMSIgd2lkdGg9IjgyMiIgaGVpZ2h0PSI4MjIiIHJ4PSIxODQiIGZpbGw9Im5vbmUiIHN0cm9rZT0idXJsKCNyaW0pIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8cGF0aCBkPSJNMzE4IDU0MCBMNDUwIDY3MiBMNjcwIDQwMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMUExNzE0IiBzdHJva2Utd2lkdGg9IjgwIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICA8Y2lyY2xlIGN4PSI3MzYiIGN5PSIyODgiIHI9IjQyIiBmaWxsPSIjRkY2QTAwIi8+Cjwvc3ZnPgo=">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,7 +61,8 @@
       color: #8A8278;
       text-align: center;
       line-height: 1.65;
-      max-width: 340px;
+      max-width: 380px;
+      text-wrap: balance;
       margin-bottom: 44px;
     }
 
@@ -120,10 +121,10 @@
   </svg>
   <p class="wordmark">tdy</p>
 
-  <h1>Always there.<br><em>Never in the way.</em></h1>
+  <h1>A to-do list<br><em>in your menu bar.</em></h1>
 
   <p class="desc">
-    A todo app that lives in your Mac menu bar. One click away, always — without interrupting your flow.
+    Click the icon, type a task, done. Add a deadline with @tomorrow and a label with #work. Everything stays on your Mac, no account.
   </p>
 
   <a href="https://github.com/AlexisPipieri/tdy/releases/latest/download/tdy-arm64.dmg" class="download-btn">
