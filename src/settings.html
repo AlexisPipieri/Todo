@@ -10,7 +10,8 @@
       --accent: #FF6A00;
       --accent-rgb: 255, 106, 0;
       --accent-strong: #CC4F00;
-      --on-accent: #1A1714;   /* text on a bright orange fill: ~6:1, where white would be ~2.7:1 */
+      --ink: #1A1714;         /* primary buttons: same ink as the icon's check and the landing page */
+      --on-ink: #F8F6F1;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -211,13 +212,13 @@
       align-items: center;
       gap: 5px;
       padding: 6px 12px;
-      background: var(--accent);
+      background: var(--ink);
       border: none;
       border-radius: 7px;
       font-family: inherit;
       font-size: 12.5px;
       font-weight: 500;
-      color: var(--on-accent);
+      color: var(--on-ink);
       cursor: pointer;
       transition: opacity 100ms;
     }
@@ -498,13 +499,13 @@
     .check-updates-btn {
       margin-top: 20px;
       padding: 7px 16px;
-      background: var(--accent);
+      background: var(--ink);
       border: none;
       border-radius: 7px;
       font-family: inherit;
       font-size: 13px;
       font-weight: 500;
-      color: var(--on-accent);
+      color: var(--on-ink);
       cursor: pointer;
       transition: opacity 100ms;
     }
