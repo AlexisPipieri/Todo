@@ -66,15 +66,16 @@
       margin-bottom: 44px;
     }
 
-    /* Same treatment as the tokens in the app's input: tinted background, colored text */
+    /* Highlighted examples, in the icon's orange. The text is a touch darker than the icon's
+       #FF6A00, which is only 2.7:1 on this background. */
     .tok {
+      color: #CC4F00;
+      background: rgba(255, 106, 0, 0.13);
       border-radius: 4px;
       padding: 1px 5px;
       font-weight: 500;
       white-space: nowrap;
     }
-    .tok-date  { color: #6366f1; background: rgba(99, 102, 241, 0.10); }
-    .tok-label { color: #16a34a; background: rgba(34, 197, 94, 0.12); }
 
     .download-btn {
       display: inline-flex;
@@ -134,7 +135,7 @@
   <h1>A to-do list<br><em>in your menu bar.</em></h1>
 
   <p class="desc">
-    Click the icon, type a task, done. Add a deadline with <span class="tok tok-date">@tomorrow</span> and a label with <span class="tok tok-label">#work</span>. Everything stays on your Mac, no account.
+    Click the icon, type a task, done. Add a deadline with <span class="tok">@tomorrow</span> and a label with <span class="tok">#work</span>. Everything stays on your Mac, no account.
   </p>
 
   <a href="https://github.com/AlexisPipieri/tdy/releases/latest/download/tdy-arm64.dmg" class="download-btn">
