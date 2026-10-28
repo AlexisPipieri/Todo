@@ -782,6 +782,15 @@ video {
   transition-duration: 150ms;
 }
 
+/* Accent: the orange of the app icon. --accent for fills and rings, --accent-strong where it is
+   text or sits under white text (pure #FF6A00 is only ~2.7:1 on light backgrounds). */
+
+:root {
+  --accent: #FF6A00;
+  --accent-rgb: 255, 106, 0;
+  --accent-strong: #CC4F00;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -853,8 +862,8 @@ body {
 }
 
 .input-wrap:focus-within {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.09);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
 }
 
 /* Mirror and input share identical text metrics */
@@ -906,8 +915,8 @@ body {
 /* Token highlights — no padding or font-weight to keep metrics identical to input */
 
 .token-date {
-  color: #6366f1;
-  background: rgba(99, 102, 241, 0.09);
+  color: var(--accent-strong);
+  background: rgba(var(--accent-rgb), 0.12);
   border-radius: 3px;
 }
 
@@ -935,8 +944,8 @@ body {
 }
 
 .checkbox.checked {
-  background: #6366f1;
-  border-color: #6366f1;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .checkbox.checked svg {
@@ -1229,7 +1238,7 @@ body {
 }
 
 .section-label.accent {
-  color: #6366f1;
+  color: var(--accent-strong);
 }
 
 /* ── Scrollbar ────────────────────────────────────────── */
@@ -1310,7 +1319,7 @@ body {
   position: absolute;
   top: 6px;
   transform: translateX(-50%);
-  color: #6366f1;
+  color: var(--accent);
   animation: onboarding-bob 1.2s ease-in-out infinite;
 }
 
@@ -1398,7 +1407,7 @@ body {
 }
 
 .onboarding-login input {
-  accent-color: #6366f1;
+  accent-color: var(--accent);
   margin: 0;
 }
 
@@ -1420,7 +1429,7 @@ body {
 }
 
 .onboarding-btn:focus-visible {
-  outline: 2px solid rgba(99, 102, 241, 0.4);
+  outline: 2px solid rgba(var(--accent-rgb), 0.4);
   outline-offset: 2px;
 }
 

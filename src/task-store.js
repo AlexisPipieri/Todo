@@ -5,7 +5,9 @@ const path = require('path');
 const SCHEMA_VERSION = 1;
 const BACKUP_KEEP_DAYS = 14;
 
-const COLOR_PALETTE = ['#6366f1','#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#ec4899','#a855f7'];
+// Brand orange (the dot in the app icon). Also the first project color; indigo moved down the list.
+const ACCENT = '#FF6A00';
+const COLOR_PALETTE = [ACCENT,'#3b82f6','#22c55e','#eab308','#6366f1','#ef4444','#ec4899','#a855f7'];
 
 function getNextColor(projects) {
   const used = (projects || []).map(p => p.color);
@@ -137,4 +139,4 @@ function createStore(dataDir, { legacyDataDir } = {}) {
   return { read, write, dataFile };
 }
 
-module.exports = { createStore, migrateTasks, SCHEMA_VERSION, COLOR_PALETTE, getNextColor };
+module.exports = { createStore, migrateTasks, ACCENT, SCHEMA_VERSION, COLOR_PALETTE, getNextColor };

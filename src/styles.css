@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Accent: the orange of the app icon. --accent for fills and rings, --accent-strong where it is
+   text or sits under white text (pure #FF6A00 is only ~2.7:1 on light backgrounds). */
+:root {
+  --accent: #FF6A00;
+  --accent-rgb: 255, 106, 0;
+  --accent-strong: #CC4F00;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -62,8 +70,8 @@ body {
   overflow: hidden;
 }
 .input-wrap:focus-within {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.09);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
 }
 
 /* Mirror and input share identical text metrics */
@@ -107,8 +115,8 @@ body {
 
 /* Token highlights — no padding or font-weight to keep metrics identical to input */
 .token-date {
-  color: #6366f1;
-  background: rgba(99, 102, 241, 0.09);
+  color: var(--accent-strong);
+  background: rgba(var(--accent-rgb), 0.12);
   border-radius: 3px;
 }
 .token-label {
@@ -130,8 +138,8 @@ body {
 }
 .checkbox:hover { border-color: #a1a1aa; }
 .checkbox.checked {
-  background: #6366f1;
-  border-color: #6366f1;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 .checkbox.checked svg { display: block; }
 .checkbox svg {
@@ -353,7 +361,7 @@ body {
   padding: 8px 14px 4px;
   color: #a1a1aa;
 }
-.section-label.accent { color: #6366f1; }
+.section-label.accent { color: var(--accent-strong); }
 
 /* ── Scrollbar ────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
@@ -388,7 +396,7 @@ body {
 .onboarding-arrow {
   position: absolute; top: 6px;
   transform: translateX(-50%);
-  color: #6366f1;
+  color: var(--accent);
   animation: onboarding-bob 1.2s ease-in-out infinite;
 }
 @keyframes onboarding-bob {
@@ -432,7 +440,7 @@ body {
   font-size: 12px; color: #3f3f46; cursor: pointer;
   margin-bottom: 14px;
 }
-.onboarding-login input { accent-color: #6366f1; margin: 0; }
+.onboarding-login input { accent-color: var(--accent); margin: 0; }
 .onboarding-btn {
   border: none; border-radius: 7px; padding: 7px 22px;
   background: #18181b; color: white;
@@ -440,7 +448,7 @@ body {
   transition: opacity 80ms ease-out;
 }
 .onboarding-btn:hover { opacity: 0.85; }
-.onboarding-btn:focus-visible { outline: 2px solid rgba(99, 102, 241, 0.4); outline-offset: 2px; }
+.onboarding-btn:focus-visible { outline: 2px solid rgba(var(--accent-rgb), 0.4); outline-offset: 2px; }
 .onboarding-hint {
   margin: auto 0 0; padding-top: 14px;
   font-size: 11px; line-height: 1.45; color: #a1a1aa;

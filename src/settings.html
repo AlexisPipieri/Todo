@@ -6,6 +6,13 @@
   <title>Settings</title>
   <link rel="stylesheet" href="../node_modules/@phosphor-icons/web/src/regular/style.css">
   <style>
+    :root {
+      --accent: #FF6A00;
+      --accent-rgb: 255, 106, 0;
+      --accent-strong: #CC4F00;
+      --on-accent: #1A1714;   /* text on a bright orange fill: ~6:1, where white would be ~2.7:1 */
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -145,7 +152,7 @@
       border-radius: 10px;
       transition: background 150ms;
     }
-    .toggle input:checked ~ .toggle-track { background: #6366f1; }
+    .toggle input:checked ~ .toggle-track { background: var(--accent); }
     .toggle-thumb {
       position: absolute;
       top: 2px;
@@ -204,13 +211,13 @@
       align-items: center;
       gap: 5px;
       padding: 6px 12px;
-      background: #6366f1;
+      background: var(--accent);
       border: none;
       border-radius: 7px;
       font-family: inherit;
       font-size: 12.5px;
       font-weight: 500;
-      color: white;
+      color: var(--on-accent);
       cursor: pointer;
       transition: opacity 100ms;
     }
@@ -309,8 +316,8 @@
       background: white;
     }
     .label-name-edit:focus {
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
     }
 
     .task-count {
@@ -491,13 +498,13 @@
     .check-updates-btn {
       margin-top: 20px;
       padding: 7px 16px;
-      background: #6366f1;
+      background: var(--accent);
       border: none;
       border-radius: 7px;
       font-family: inherit;
       font-size: 13px;
       font-weight: 500;
-      color: white;
+      color: var(--on-accent);
       cursor: pointer;
       transition: opacity 100ms;
     }

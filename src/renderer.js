@@ -1,6 +1,6 @@
 const { ipcRenderer } = require('electron');
 const { toLocalISO, parseAtQuery } = require('./date-parser');
-const { getNextColor } = require('./task-store');
+const { getNextColor, ACCENT } = require('./task-store');
 
 let tasks = [];
 let projects = [];
@@ -153,7 +153,7 @@ function showHashProjectPicker(inputEl, query) {
 
   if (q && !exactMatch) {
     const createOpt = document.createElement('div');
-    createOpt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:#6366f1;border-top:1px solid #e4e4e7;';
+    createOpt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:var(--accent-strong);border-top:1px solid #e4e4e7;';
     const plus = document.createElement('span'); plus.textContent = '+'; plus.style.cssText = 'font-weight:bold;font-size:14px;line-height:1;flex-shrink:0;';
     const text = document.createElement('span'); text.textContent = `Create "${query}"`;
     createOpt.appendChild(plus); createOpt.appendChild(text);
@@ -266,7 +266,7 @@ function renderPickerOptions(container, query) {
 
   if (q && !exactMatch) {
     const createOpt = document.createElement('div');
-    createOpt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:#6366f1;border-top:1px solid #e4e4e7;';
+    createOpt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:var(--accent-strong);border-top:1px solid #e4e4e7;';
     const plus = document.createElement('span');
     plus.textContent = '+';
     plus.style.cssText = 'font-weight:bold;flex-shrink:0;font-size:14px;line-height:1;';
@@ -619,7 +619,7 @@ function renderFocusView(container) {
   if (todayActive.length === 0) {
     html += `
       <div class="flex flex-col items-center justify-center py-8 px-4 text-center">
-        <div style="font-size:16px;color:#6366f1;margin-bottom:6px;">✓</div>
+        <div style="font-size:16px;color:var(--accent);margin-bottom:6px;">✓</div>
         <div style="font-size:13px;font-weight:500;color:#09090b;margin-bottom:3px;">Focus cleared</div>
         <div style="font-size:12px;color:#71717a;">Nothing left for today</div>
       </div>
@@ -696,7 +696,7 @@ function showProjectFilterPicker(anchorEl) {
       opt.innerHTML = `
         <span style="width:7px;height:7px;border-radius:50%;background:${p.color};flex-shrink:0;display:inline-block;"></span>
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>
-        ${isActive ? `<svg width="10" height="10" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>` : ''}
+        ${isActive ? `<svg width="10" height="10" fill="none" style="stroke:var(--accent)" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>` : ''}
       `;
       opt.addEventListener('mouseover', () => { opt.style.background = '#f4f4f5'; });
       opt.addEventListener('mouseout',  () => { opt.style.background = isActive ? '#f4f4f5' : ''; });
@@ -883,7 +883,7 @@ function onDragMove(e) {
   if (targetRow && targetRow !== dragging.row) {
     const r = targetRow.getBoundingClientRect();
     const before = e.clientY < r.top + r.height / 2;
-    targetRow.style.boxShadow = before ? 'inset 0 2px 0 0 #818cf8' : 'inset 0 -2px 0 0 #818cf8';
+    targetRow.style.boxShadow = before ? 'inset 0 2px 0 0 var(--accent)' : 'inset 0 -2px 0 0 var(--accent)';
     dragging.currentTarget = { row: targetRow, before };
   } else {
     dragging.currentTarget = null;
@@ -1016,7 +1016,7 @@ function showDotsMenu(anchorEl, taskId) {
 
       if (lq && !exactMatch) {
         const createOpt = document.createElement('div');
-        createOpt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:12px;color:#6366f1;border-top:1px solid #e4e4e7;margin-top:2px;';
+        createOpt.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:12px;color:var(--accent-strong);border-top:1px solid #e4e4e7;margin-top:2px;';
         createOpt.innerHTML = `<span style="font-weight:bold;font-size:14px;line-height:1;flex-shrink:0;">+</span><span>Create "${q}"</span>`;
         createOpt.addEventListener('mouseover', () => { createOpt.style.background = '#f4f4f5'; });
         createOpt.addEventListener('mouseout',  () => { createOpt.style.background = ''; });
@@ -1203,7 +1203,7 @@ function updateMirror() {
   }
   if (draft.projectName) {
     const proj    = projects.find(p => p.name === draft.projectName);
-    const color   = proj ? proj.color : '#6366f1';
+    const color   = proj ? proj.color : ACCENT;
     const escaped = escapeHtml(`#${draft.projectName}`);
     html = html.split(escaped).join(`<span class="token-label" style="color:${color};background:${color}14;">${escaped}</span>`);
   }
@@ -1241,7 +1241,7 @@ function showHistoryPanel() {
         return `<div style="padding:8px 0 4px;">
           <div style="padding:0 14px 5px;font-size:10px;font-weight:600;color:#a1a1aa;text-transform:uppercase;letter-spacing:0.05em;">${escapeHtml(dayLabel(g.date))} · ${g.tasks.length}</div>
           ${sorted.map(t => `<div style="display:flex;align-items:center;gap:9px;padding:5px 14px;border-top:1px solid #f4f4f5;">
-            <div style="width:15px;height:15px;border-radius:4px;flex-shrink:0;background:#6366f1;display:flex;align-items:center;justify-content:center;">
+            <div style="width:15px;height:15px;border-radius:4px;flex-shrink:0;background:var(--accent);display:flex;align-items:center;justify-content:center;">
               <svg width="9" height="9" fill="none" stroke="white" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7"/></svg>
             </div>
             <span style="flex:1;min-width:0;font-size:12.5px;color:#a1a1aa;text-decoration:line-through;text-decoration-color:#d4d4d8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(t.title)}</span>
