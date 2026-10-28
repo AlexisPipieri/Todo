@@ -499,6 +499,7 @@
     .check-updates-btn {
       margin-top: 20px;
       padding: 7px 16px;
+      min-width: 172px;   /* the label changes while checking: keep the button from jumping */
       background: var(--ink);
       border: none;
       border-radius: 7px;
@@ -510,6 +511,7 @@
       transition: opacity 100ms;
     }
     .check-updates-btn:hover { opacity: 0.88; }
+    .check-updates-btn:disabled { opacity: 0.55; cursor: default; }
   </style>
 </head>
 <body>

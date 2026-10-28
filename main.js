@@ -141,34 +141,52 @@ function installUpdate() {
   autoUpdater.quitAndInstall(false, true);
 }
 
+// Manual check from Settings → About. Resolves when the whole flow has ended (up to date, update
+// downloaded, or failed), so the button can stay in a "Checking…" / "Downloading…" state meanwhile.
+// One check at a time: further clicks join the one in flight instead of stacking listeners/dialogs.
+let manualCheck = null;
+
+function sendUpdateStatus(status) {
+  if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.webContents.send('update-status', status);
+}
+
+function showUpdateReadyDialog() {
+  return dialog.showMessageBox({ type: 'info', title: 'tdy', message: 'Update ready', detail: 'A new version has been downloaded. Restart to apply it.', buttons: ['Restart Now', 'Later'] })
+    .then(({ response }) => { if (response === 0) installUpdate(); });
+}
+
 function checkForUpdates() {
-  let responded = false;
+  if (manualCheck) return manualCheck;
+  if (updateReady) { showUpdateReadyDialog(); return Promise.resolve(); }
 
-  const onNotAvailable = () => {
-    if (responded) return;
-    responded = true;
-    dialog.showMessageBox({ type: 'info', title: 'tdy', message: 'You\'re up to date!', detail: `Version ${app.getVersion()} is the latest.`, buttons: ['OK'] });
-  };
+  manualCheck = new Promise((resolve) => {
+    const listeners = {
+      'update-not-available': () => {
+        dialog.showMessageBox({ type: 'info', title: 'tdy', message: 'You\'re up to date!', detail: `Version ${app.getVersion()} is the latest.`, buttons: ['OK'] });
+        finish();
+      },
+      'update-available': () => sendUpdateStatus({ state: 'downloading', percent: 0 }),
+      'download-progress': (p) => sendUpdateStatus({ state: 'downloading', percent: Math.round(p.percent) }),
+      'update-downloaded': () => { showUpdateReadyDialog(); finish(); },
+      'error': (err) => {
+        dialog.showMessageBox({ type: 'error', title: 'tdy', message: 'Update check failed', detail: err.message, buttons: ['OK'] });
+        finish();
+      },
+    };
 
-  const onAvailable = () => { responded = true; };
+    function finish() {
+      for (const [event, fn] of Object.entries(listeners)) autoUpdater.removeListener(event, fn);
+      manualCheck = null;
+      sendUpdateStatus({ state: 'idle' });
+      resolve();
+    }
 
-  const onDownloaded = () => {
-    responded = true;
-    dialog.showMessageBox({ type: 'info', title: 'tdy', message: 'Update ready', detail: 'A new version has been downloaded. Restart to apply it.', buttons: ['Restart Now', 'Later'] })
-      .then(({ response }) => { if (response === 0) autoUpdater.quitAndInstall(); });
-  };
-
-  const onError = (err) => {
-    if (responded) return;
-    responded = true;
-    dialog.showMessageBox({ type: 'error', title: 'tdy', message: 'Update check failed', detail: err.message, buttons: ['OK'] });
-  };
-
-  autoUpdater.once('update-not-available', onNotAvailable);
-  autoUpdater.once('update-available', onAvailable);
-  autoUpdater.once('update-downloaded', onDownloaded);
-  autoUpdater.once('error', onError);
-  autoUpdater.checkForUpdates();
+    for (const [event, fn] of Object.entries(listeners)) autoUpdater.on(event, fn);
+    sendUpdateStatus({ state: 'checking' });
+    // null means the updater is inactive (unpackaged dev build): there is nothing to wait for
+    autoUpdater.checkForUpdates().then((result) => { if (result == null) finish(); }).catch(() => {});
+  });
+  return manualCheck;
 }
 
 function createTray() {
@@ -265,9 +283,7 @@ ipcMain.handle('finish-onboarding', (event, { openAtLogin }) => {
 ipcMain.handle('get-update-ready', () => updateReady);
 ipcMain.handle('install-update', () => installUpdate());
 
-ipcMain.handle('check-for-updates', () => {
-  checkForUpdates();
-});
+ipcMain.handle('check-for-updates', () => checkForUpdates());
 
 ipcMain.handle('get-labels', () => store.read());
 

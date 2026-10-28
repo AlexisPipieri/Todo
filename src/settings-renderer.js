@@ -327,6 +327,24 @@ document.getElementById('show-in-finder-btn').addEventListener('click', () => {
 
 // ── About: check for updates ──────────────────────────────
 
-document.getElementById('check-updates-btn').addEventListener('click', () => {
-  ipcRenderer.invoke('check-for-updates');
+const updateBtn = document.getElementById('check-updates-btn');
+const UPDATE_LABEL = updateBtn.textContent;
+
+function setUpdateBtn(text, busy) {
+  updateBtn.textContent = text;
+  updateBtn.disabled = busy;
+}
+
+// The main process reports each stage, so a long download never looks like a dead button
+ipcRenderer.on('update-status', (event, { state, percent }) => {
+  if (state === 'checking') setUpdateBtn('Checking…', true);
+  else if (state === 'downloading') setUpdateBtn(percent > 0 ? `Downloading… ${percent}%` : 'Downloading…', true);
+  else setUpdateBtn(UPDATE_LABEL, false);
+});
+
+updateBtn.addEventListener('click', async () => {
+  if (updateBtn.disabled) return;
+  setUpdateBtn('Checking…', true);   // immediate feedback, before the first status arrives
+  await ipcRenderer.invoke('check-for-updates');
+  setUpdateBtn(UPDATE_LABEL, false);
 });
