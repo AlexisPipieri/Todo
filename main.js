@@ -356,11 +356,16 @@ function offerMoveToApplications() {
     cancelId: 1,
   });
   if (response !== 0) return false;
+  // The relaunched copy has to be able to take the single-instance lock, so let go of it first
+  app.releaseSingleInstanceLock();
+  let moved = false;
   try {
-    return app.moveToApplicationsFolder();
+    moved = app.moveToApplicationsFolder();
   } catch {
-    return false;  // e.g. the admin password prompt was cancelled: keep running where we are
+    moved = false;  // e.g. the admin password prompt was cancelled: keep running where we are
   }
+  if (!moved) app.requestSingleInstanceLock();  // staying put: hold the lock again
+  return moved;
 }
 
 app.whenReady().then(() => {
